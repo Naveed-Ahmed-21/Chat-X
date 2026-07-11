@@ -1,6 +1,7 @@
 import 'package:chatx_app/config/imgepaths.dart';
+import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/controller/profile_controller.dart';
-import 'package:chatx_app/pages/screens/presentation/homePage/widgets/chat_lists.dart';
+import 'package:chatx_app/pages/screens/presentation/homePage/widgets/chat_room_list.dart';
 import 'package:chatx_app/pages/screens/presentation/homePage/widgets/tabBar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -14,7 +15,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
+
   final ProfileController profileController = Get.find<ProfileController>();
+
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
             controller: tabController,
             children: [
 
-              ChatLists(),
+              ChatRoomList(),
 
               ListView(
                 children: [

@@ -1,4 +1,5 @@
 import 'package:chatx_app/config/imgepaths.dart';
+import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/chat_type.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/empty_chat_widget.dart';
@@ -6,8 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
 import 'package:get/route_manager.dart';
-import 'package:intl/intl.dart';
-
 import '../../../../controller/chat_controller.dart';
 import '../../../../model/message_model.dart';
 import '../../../../utils/date_time_formatter.dart';
@@ -22,8 +21,9 @@ class ChatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
 
 
+    final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
     final ChatController chatController = Get.find();
-    final roomId = chatController.getRoomId(user.uid);
+    final roomId = chatRoomController.getRoomId(user.uid);
     TextEditingController messageController = TextEditingController();
 
     return Scaffold(

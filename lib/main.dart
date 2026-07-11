@@ -1,6 +1,7 @@
 import 'package:chatx_app/config/pagepaths.dart';
 import 'package:chatx_app/config/themes.dart';
 import 'package:chatx_app/controller/chat_controller.dart';
+import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/model/message_model.dart';
 import 'package:chatx_app/pages/screens/splashScreen/splash_screen.dart';
 import 'package:cloudinary_flutter/cloudinary_context.dart';
@@ -15,7 +16,7 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'controller/auth_controller.dart';
 import 'controller/profile_controller.dart';
 import 'controller/user_contact_controller.dart';
-import 'firebase_options.dart';
+import 'widgets/firebase_options.dart';
 
 
 void main() async {
@@ -62,5 +63,6 @@ class InitialBinding extends Bindings {
     Get.put(AuthController(), permanent: true);
     Get.put(ProfileController(), permanent: true);
     Get.put(ChatController(), permanent: true);
+    Get.put(ChatRoomController(), permanent: true);
   }
 }

@@ -5,12 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'chat_controller.dart';
+import 'chat_room_controller.dart';
 
 class AuthController extends GetxController {
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
   RxBool isLoading = false.obs;
-
 
   Future<void> login(String email, String password) async {
     try {
@@ -21,12 +21,8 @@ class AuthController extends GetxController {
         password: password,
       );
 
-      Get.put(ProfileController());
-      Get.put(UserContactController());
-      Get.put(ChatController());
 
-      Get.offAllNamed('/homeScreen');
-
+      Get.offAllNamed("/homeScreen");
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Login Failed", e.message ?? "something went wrong");
     } finally {
@@ -66,6 +62,7 @@ class AuthController extends GetxController {
     await auth.signOut();
 
     Get.deleteAll(force: true);
+    Get.delete<ChatRoomController>();
 
     Get.offAllNamed('/authScreen');
   }

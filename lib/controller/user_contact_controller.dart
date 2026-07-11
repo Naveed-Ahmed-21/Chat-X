@@ -55,4 +55,17 @@ class UserContactController extends GetxController {
       print(e);
     }
   }
+
+  Future<UserModel?> getUserById(String uid) async {
+    try {
+      final doc = await db.collection("users").doc(uid).get();
+
+      if (!doc.exists) return null;
+
+      return UserModel.fromJson(doc.data()!);
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
 }

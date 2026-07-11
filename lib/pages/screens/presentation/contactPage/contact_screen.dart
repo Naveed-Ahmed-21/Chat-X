@@ -1,4 +1,5 @@
 import 'package:chatx_app/controller/chat_controller.dart';
+import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/chat_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/contactPage/widgets/new_contact_tile.dart';
 import 'package:chatx_app/pages/screens/presentation/homePage/widgets/chat_tile.dart';
@@ -21,6 +22,7 @@ class ContactScreen extends StatelessWidget {
   final ContactController controller = Get.put(ContactController());  // For search
   final UserContactController userContactController = Get.find<UserContactController>();
   final ChatController chatController = Get.find<ChatController>();
+  final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +136,7 @@ class ContactScreen extends StatelessWidget {
                     onTap: () {
                       Get.to(() => ChatScreen(user: user));
 
-                      String roomId = chatController.getRoomId(user.uid);
+                      String roomId = chatRoomController.getRoomId(user.uid);
                       print(roomId);
 
                     },
