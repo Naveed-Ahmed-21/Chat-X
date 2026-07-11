@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "960376410319",
+    "project_id": "chat-x-21",
+    "storage_bucket": "chat-x-21.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960376410319:android:bcab8a6bd5b72ff2a727ba",
+        "android_client_info": {
+          "package_name": "com.example.chatx_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABVB5rGeiG881lqCjxt2Fw5PXMay5-p-U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
