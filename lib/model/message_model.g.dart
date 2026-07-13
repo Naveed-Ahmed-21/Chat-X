@@ -14,7 +14,7 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   type: $enumDecode(_$MessageTypeEnumMap, json['type']),
   mediaUrl: json['mediaUrl'] as String,
   timeStamp: MessageModel._fromJson(json['timeStamp']),
-  status: $enumDecode(_$MessageStatusEnumMap, json['status']),
+  status: MessageModel._statusFromJson(json['status'] as String),
   reactions: json['reactions'] as Map<String, dynamic>,
   replyMessageId: json['replyMessageId'] as String,
   isDeleted: json['isDeleted'] as bool,
@@ -29,7 +29,7 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'type': _$MessageTypeEnumMap[instance.type]!,
       'mediaUrl': instance.mediaUrl,
       'timeStamp': MessageModel._toJson(instance.timeStamp),
-      'status': _$MessageStatusEnumMap[instance.status]!,
+      'status': MessageModel._statusToJson(instance.status),
       'reactions': instance.reactions,
       'replyMessageId': instance.replyMessageId,
       'isDeleted': instance.isDeleted,
@@ -41,11 +41,4 @@ const _$MessageTypeEnumMap = {
   MessageType.video: 'video',
   MessageType.audio: 'audio',
   MessageType.document: 'document',
-};
-
-const _$MessageStatusEnumMap = {
-  MessageStatus.sending: 'sending',
-  MessageStatus.sent: 'sent',
-  MessageStatus.delivered: 'delivered',
-  MessageStatus.read: 'read',
 };

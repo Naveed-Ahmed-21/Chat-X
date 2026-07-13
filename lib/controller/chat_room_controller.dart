@@ -7,7 +7,6 @@ class ChatRoomController extends GetxController {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
 
-  /// Generate Room ID
   String getRoomId(String targetUserId) {
     final currentUserId = auth.currentUser!.uid;
 
@@ -16,29 +15,31 @@ class ChatRoomController extends GetxController {
     return users.join("_");
   }
 
-  /// Create Room if not exists
-  Future<void> createRoom(String targetUserId) async {
-    final roomId = getRoomId(targetUserId);
+  Future<void> createOrUpdateRoom({
+    required String receiverId,
+    required String lastMessage,
+  }) async {
+    final roomId = getRoomId(receiverId);
 
-    final roomDoc = db.collection("chats").doc(roomId);
+    await db.collection("chats").doc(roomId).set({
+      "id": roomId,
 
-    final roomSnapshot = await roomDoc.get();
+      "participants": [auth.currentUser!.uid, receiverId],
 
-    if (roomSnapshot.exists) return;
+      "lastMessage": lastMessage,
 
-    final room = ChatRoomModel(
-      id: roomId,
-      participants: [
-        auth.currentUser!.uid,
-        targetUserId,
-      ],
-      createdAt: DateTime.now(),
-    );
+      "lastMessageSenderId": auth.currentUser!.uid,
 
-    await roomDoc.set(room.toJson());
+      "lastMessageTimestamp": FieldValue.serverTimestamp(),
+
+      "createdAt": FieldValue.serverTimestamp(),
+
+      "isGroup": false,
+
+      "groupName": "",
+    }, SetOptions(merge: true));
   }
 
-  /// Update Room Metadata
   Future<void> updateRoom({
     required String targetUserId,
     required String lastMessage,
@@ -56,21 +57,13 @@ class ChatRoomController extends GetxController {
   Stream<List<ChatRoomModel>> getChatRooms() {
     return db
         .collection("chats")
-        .where(
-      "participants",
-      arrayContains: auth.currentUser!.uid,
-    )
-        .orderBy(
-      "lastMessageTimestamp",
-      descending: true,
-    )
+        .where("participants", arrayContains: auth.currentUser!.uid)
+        .orderBy("lastMessageTimestamp", descending: true)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-          .map(
-            (e) => ChatRoomModel.fromJson(e.data()),
-      )
-          .toList(),
-    );
+              .map((e) => ChatRoomModel.fromJson(e.data()))
+              .toList(),
+        );
   }
 }

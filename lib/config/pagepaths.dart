@@ -1,14 +1,13 @@
+import 'package:chatx_app/main.dart';
 import 'package:chatx_app/pages/screens/authentication/auth_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/contactPage/contact_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/homePage/home_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/profilePage/user_profile_screen.dart';
-import 'package:chatx_app/pages/screens/presentation/profilePage/updateProfile_screen.dart';
 import 'package:chatx_app/pages/screens/splashScreen/splash_screen.dart';
 import 'package:chatx_app/pages/screens/welcomepage/welcome_sreen.dart';
 import 'package:get/get.dart';
-
 import '../pages/screens/presentation/profilePage/profile_screen.dart';
-import '../widgets/home_bindings.dart';
+
 
 var pagePath = [
   GetPage(
@@ -23,23 +22,12 @@ var pagePath = [
     binding: HomeBinding(),
   ),
 
-  // GetPage(
-  //     name: "/chatScreen",
-  //     page: () => ChatScreen(),
-  //     transition: Transition.rightToLeft
-  // ),
-
   GetPage(
     name: "/profileScreen",
     page: () => ProfileScreen(),
     transition: Transition.rightToLeft,
   ),
 
-  // GetPage(
-  //     name: "/updateProfileScreen",
-  //     page: () => UpdateProfileScreen(),
-  //     transition: Transition.rightToLeft
-  // ),
 
   GetPage(
     name: "/userProfileScreen",

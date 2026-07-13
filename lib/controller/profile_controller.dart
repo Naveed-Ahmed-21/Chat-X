@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 class ProfileController extends GetxController {
 
-  final UploadService uploadService = Get.put(UploadService());
+  final UploadService uploadService = Get.find();
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
   final ImagePicker picker = ImagePicker();
@@ -53,9 +53,11 @@ class ProfileController extends GetxController {
         currentUser.value = UserModel.fromJson(doc.data()!);
       }
 
-      nameController.text =currentUser.value!.name;
-      phoneController.text =currentUser.value!.phoneNumber;
-      aboutController.text =currentUser.value!.about;
+      if (currentUser.value != null) {
+        nameController.text = currentUser.value!.name;
+        phoneController.text = currentUser.value!.phoneNumber;
+        aboutController.text = currentUser.value!.about;
+      }
 
     } catch (e) {
       Get.snackbar("Error", e.toString());

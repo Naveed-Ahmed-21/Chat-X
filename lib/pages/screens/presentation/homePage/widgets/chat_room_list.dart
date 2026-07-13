@@ -29,15 +29,18 @@ class ChatRoomList extends StatelessWidget {
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(AppImages.appLogo, scale: 2),
-                SizedBox(height: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                      AppImages.appLogo,
+                    scale: 2,
+                  ),
+                  SizedBox(height: 20,),
 
-                const Text("No conversations yet"),
-              ],
-            ),
+                  const Text("No conversations yet"),
+                ],
+              )
           );
         }
 

@@ -1,3 +1,4 @@
+import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_status_icon.dart';
 import 'package:chatx_app/widgets/message_status.dart';
 import 'package:flutter/material.dart';
 
@@ -7,7 +8,7 @@ class ChatType extends StatelessWidget {
   final String imageUrl;
   final bool isComing;
   final String time;
-  final String status;
+  final MessageStatus status;
 
   const ChatType({
     super.key,
@@ -92,25 +93,9 @@ class ChatType extends StatelessWidget {
                       time,
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
-                  SizedBox(width: 5,),
-                  // MessageStatus.values == "read"
-                  //     ? Icon(
-                  //         Icons.done_all,
-                  //         color: Colors.blueAccent
-                  //     ) : MessageStatus.values == "delivered" ? Icon(
-                  //     Icons.done_all,
-                  //   color: Colors.grey,
-                  // ) : MessageStatus.values == "sent" ? Icon(
-                  //     Icons.done,
-                  //   color: Colors.grey,
-                  // ) : Icon(
-                  //     Icons.update,
-                  //   color: Colors.grey,
-                  // )
-                  // Icon(
-                  //     Icons.done_all,
-                  //   color: Colors.grey,
-                  // )
+                  SizedBox(width: 4,),
+                 if(!isComing)
+                   MessageStatusIcon(status: status)
                 ],
               )
             ],

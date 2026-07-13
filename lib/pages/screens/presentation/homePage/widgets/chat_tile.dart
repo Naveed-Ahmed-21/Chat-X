@@ -55,7 +55,7 @@ class ChatTile extends StatelessWidget {
                                   width: 56,
                                   height: 56,
                                   fit: BoxFit.cover,
-                                  placeholder: (_, __) => const Center(
+                                  placeholder: (_, _) => const Center(
                                     child: SizedBox(
                                       width: 20,
                                       height: 20,
@@ -64,7 +64,7 @@ class ChatTile extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  errorWidget: (_, __, ___) => Image.asset(
+                                  errorWidget: (_, _, _) => Image.asset(
                                     AppImages.male,
                                     fit: BoxFit.cover,
                                   ),

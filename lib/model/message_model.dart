@@ -21,7 +21,12 @@ class MessageModel {
     toJson: _toJson,
   )
   final DateTime? timeStamp;
+  @JsonKey(
+    fromJson: _statusFromJson,
+    toJson: _statusToJson,
+  )
   final MessageStatus status;
+  
   final Map<String, dynamic> reactions;
   final String replyMessageId;
   final bool isDeleted;
@@ -55,6 +60,18 @@ class MessageModel {
 
     return Timestamp.fromDate(value);
   }
+
+  static MessageStatus _statusFromJson(String value) {
+    return MessageStatus.values.firstWhere(
+          (e) => e.name == value,
+      orElse: () => MessageStatus.sent,
+    );
+  }
+
+  static String _statusToJson(MessageStatus status) {
+    return status.name;
+  }
+
 
   factory MessageModel.fromJson(Map<String, dynamic> json) =>
       _$MessageModelFromJson(json);

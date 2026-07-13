@@ -6,6 +6,7 @@ class DBController extends GetxController {
   final db = FirebaseFirestore.instance;
   final auth = FirebaseAuth.instance;
 
+
   RxBool isLoading = false.obs;
   RxList<UserModel> userList = <UserModel>[].obs;
 

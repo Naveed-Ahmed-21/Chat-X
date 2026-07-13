@@ -1,4 +1,3 @@
-import 'package:chatx_app/controller/profile_controller.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 

@@ -2,10 +2,8 @@ import 'package:chatx_app/config/pagepaths.dart';
 import 'package:chatx_app/config/themes.dart';
 import 'package:chatx_app/controller/chat_controller.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
-import 'package:chatx_app/model/message_model.dart';
 import 'package:chatx_app/pages/screens/splashScreen/splash_screen.dart';
-import 'package:cloudinary_flutter/cloudinary_context.dart';
-import 'package:cloudinary_url_gen/cloudinary.dart';
+import 'package:chatx_app/services/upload_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -18,19 +16,13 @@ import 'controller/profile_controller.dart';
 import 'controller/user_contact_controller.dart';
 import 'widgets/firebase_options.dart';
 
-
 void main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -50,19 +42,27 @@ class _MyAppState extends State<MyApp> {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.dark,
-      home: SplashScreen(),
+      initialRoute: "/splashScreen",
     );
   }
 }
 
-
 class InitialBinding extends Bindings {
   @override
   void dependencies() {
-    Get.put(UserContactController(), permanent: true);
     Get.put(AuthController(), permanent: true);
+    Get.put(UploadService(), permanent: true);
     Get.put(ProfileController(), permanent: true);
-    Get.put(ChatController(), permanent: true);
-    Get.put(ChatRoomController(), permanent: true);
+  }
+}
+
+
+class HomeBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut(() => ChatRoomController(), fenix: true);
+    Get.lazyPut(() => ChatController(), fenix: true);
+    Get.lazyPut(() => UserContactController(), fenix: true);
+    Get.lazyPut(() => ProfileController(), fenix: true);
   }
 }
