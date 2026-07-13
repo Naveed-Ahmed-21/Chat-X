@@ -1,7 +1,11 @@
+import 'package:chatx_app/controller/user_contact_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
+
+import 'chat_controller.dart';
+import 'chat_room_controller.dart';
 
 class AuthController extends GetxController {
   final auth = FirebaseAuth.instance;
@@ -16,7 +20,6 @@ class AuthController extends GetxController {
         email: email.trim(),
         password: password,
       );
-
 
       Get.offAllNamed("/homeScreen");
     } on FirebaseAuthException catch (e) {
@@ -57,7 +60,11 @@ class AuthController extends GetxController {
   Future<void> logoutUser() async {
     await auth.signOut();
 
-    Get.offAllNamed('/authScreen');
+    Get.delete<UserContactController>(force: true);
+    Get.delete<ChatController>(force: true);
+    Get.delete<ChatRoomController>(force: true);
+
+    Get.offAllNamed("/authScreen");
   }
 
   Future<void> initUser(

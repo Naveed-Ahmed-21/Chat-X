@@ -19,11 +19,6 @@ class UserContactController extends GetxController {
     getUserLists();
   }
 
-  @override
-  void onClose() {
-    _userSubscription?.cancel();
-    super.onClose();
-  }
 
   Future<void> getUserLists() async {
     try {
@@ -31,10 +26,8 @@ class UserContactController extends GetxController {
 
       isLoading.value = true;
 
-      // Clear old data immediately
       userList.clear();
 
-      // Cancel previous listener if any
       await _userSubscription?.cancel();
 
       _userSubscription = db
@@ -68,4 +61,11 @@ class UserContactController extends GetxController {
       return null;
     }
   }
+
+  @override
+  void onClose() {
+    _userSubscription?.cancel();
+    super.onClose();
+  }
+
 }

@@ -66,7 +66,12 @@ class ChatRoomList extends StatelessWidget {
 
                 return InkWell(
                   onTap: () {
-                    Get.to(() => ChatScreen(user: user));
+                    Get.to(
+                          () => ChatScreen(
+                        key: ValueKey(user.uid),
+                        user: user,
+                      ),
+                    );
                   },
                   child: ChatTile(
                     imageUrl: user.profilePic,

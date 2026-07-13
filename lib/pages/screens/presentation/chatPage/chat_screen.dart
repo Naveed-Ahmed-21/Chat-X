@@ -3,7 +3,6 @@ import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/chat_type.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/empty_chat_widget.dart';
-import 'package:chatx_app/widgets/message_status.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
@@ -26,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
   final ChatController chatController = Get.find();
+  final ScrollController scrollController = ScrollController();
   TextEditingController messageController = TextEditingController();
   late final roomId = chatRoomController.getRoomId(widget.user.uid);
 
@@ -37,10 +37,20 @@ class _ChatScreenState extends State<ChatScreen> {
       roomId,
       widget.user.uid,
     );
+    chatController.markMessagesAsDelivered();
+
+    // print("========================");
+    // print("Current User : ${FirebaseAuth.instance.currentUser!.uid}");
+    // print("Target User  : ${widget.user.uid}");
+    // print("Room ID      : $roomId");
+    // print("========================");
+
   }
 
   @override
   Widget build(BuildContext context) {
+
+    final roomId = chatRoomController.getRoomId(widget.user.uid);
 
     return Scaffold(
       appBar: AppBar(
@@ -52,6 +62,8 @@ class _ChatScreenState extends State<ChatScreen> {
           icon: Icon(Icons.arrow_back_ios),
         ),
         title: InkWell(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
           onTap: (){
             Get.toNamed(
                 '/userProfileScreen',
@@ -194,46 +206,34 @@ class _ChatScreenState extends State<ChatScreen> {
               return const EmptyChatWidget();
             }
 
-
-
-            return Obx((){
-
-              final firestoreMessages = snapshot.data!;
-
-              final pending = chatController.pendingMessages.where((pendingMessage) {
-                return !firestoreMessages.any(
-                      (message) => message.id == pendingMessage.id,
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (scrollController.hasClients) {
+                scrollController.animateTo(
+                  scrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
                 );
-              }).toList();
-
-              final allMessages = [
-                ...firestoreMessages,
-                ...pending,
-              ];
-
-              allMessages.sort(
-                    (a, b) => (a.timeStamp ?? DateTime.now())
-                    .compareTo(b.timeStamp ?? DateTime.now()),
-              );
-
-              return ListView.builder(
-                reverse: false,
-                itemCount: allMessages.length,
-                itemBuilder: (context, index) {
-                  final message = allMessages[index];
-
-                  return ChatType(
-                    message: message.message,
-                    imageUrl: message.mediaUrl,
-                    isComing:
-                    message.senderId !=
-                        FirebaseAuth.instance.currentUser!.uid,
-                    time: DateTimeFormatter.formatTime(message.timeStamp),
-                    status: message.status,
-                  );
-                },
-              );
+              }
             });
+
+            final messages = snapshot.data!;
+
+            return ListView.builder(
+              controller: scrollController,
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+
+                return ChatType(
+                  message: message.message,
+                  imageUrl: message.mediaUrl,
+                  isComing:
+                  message.senderId != FirebaseAuth.instance.currentUser!.uid,
+                  time: DateTimeFormatter.formatTime(message.timeStamp),
+                  status: message.status,
+                );
+              },
+            );
           },
         ),
       ),

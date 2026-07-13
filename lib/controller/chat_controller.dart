@@ -12,60 +12,39 @@ class ChatController extends GetxController {
   final FirebaseAuth auth = FirebaseAuth.instance;
   final ChatRoomController roomController = Get.find<ChatRoomController>();
 
-  RxList<MessageModel> pendingMessages = <MessageModel>[].obs;
   RxBool isLoading = false.obs;
 
   Future<void> sendTextMessage({
     required String receiverId,
     required String text,
   }) async {
-    isLoading.value = true;
+    final roomId = roomController.getRoomId(receiverId);
 
-    try {
-      final roomId = roomController.getRoomId(receiverId);
+    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
 
-      await roomController.createOrUpdateRoom(
-        receiverId: receiverId,
-        lastMessage: '',
-      );
+    final roomFuture = roomController.createOrUpdateRoom(
+      receiverId: receiverId,
+      lastMessage: text,
+    );
+    // await roomController.createOrUpdateRoom(
+    //   receiverId: receiverId,
+    //   lastMessage: text,
+    // );
 
-      final messageRef = db
-          .collection("chats")
-          .doc(roomId)
-          .collection("messages")
-          .doc();
-
-      final message = MessageModel(
-        id: messageRef.id,
-        senderId: auth.currentUser!.uid,
-        receiverId: receiverId,
-        message: text,
-        type: MessageType.text,
-        mediaUrl: "",
-        timeStamp: DateTime.now(),
-        status: MessageStatus.sending,
-        reactions: {},
-        replyMessageId: "",
-        isDeleted: false,
-      );
-
-      pendingMessages.add(message);
-
-      await messageRef.set({
-        ...message.toJson(),
-        "timeStamp": FieldValue.serverTimestamp(),
-      });
-
-      // pendingMessages.removeWhere((m) => m.id == message.id);
-
-      await messageRef.update({"status": MessageStatus.sent.name});
-
-      roomController.updateRoom(targetUserId: receiverId, lastMessage: text);
-    } catch (e) {
-      Get.snackbar("Error", e.toString());
-    } finally {
-      isLoading.value = false;
-    }
+    await doc.set({
+      "id": doc.id,
+      "senderId": auth.currentUser!.uid,
+      "receiverId": receiverId,
+      "message": text,
+      "type": MessageType.text.name,
+      "mediaUrl": "",
+      "timeStamp": Timestamp.now(),
+      "status": MessageStatus.sent.name,
+      "reactions": {},
+      "replyMessageId": "",
+      "isDeleted": false,
+    });
+    await roomFuture;
   }
 
   Stream<List<MessageModel>> getMessages(String roomId) {
@@ -73,7 +52,7 @@ class ChatController extends GetxController {
         .collection("chats")
         .doc(roomId)
         .collection("messages")
-        .orderBy("timeStamp", descending: true)
+        .orderBy("timeStamp", descending: false)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
