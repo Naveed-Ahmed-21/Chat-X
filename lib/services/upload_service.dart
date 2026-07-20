@@ -1,37 +1,68 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class  UploadService {
+
+class UploadService {
 
   final Dio dio = Dio();
 
-  Future<String?> uploadFile(String filePath) async {
+  Future<String> uploadImage(String filePath) async {
     try {
-      FormData formData = FormData.fromMap({
+
+      final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(filePath),
         "uid": FirebaseAuth.instance.currentUser!.uid,
       });
 
-      Response response = await dio.post(
-        "http://10.0.2.2:5000/api/upload/profile",
+      final response = await dio.post(
+        "${ApiConstants.baseUrl}/api/upload/profile",
         data: formData,
       );
 
-      print(response.statusCode);
-      print(response.data);
-
       if (response.statusCode == 200) {
-        return response.data['imageUrl'];
-      } 
-      return null;
-     
-    }  on DioException catch (e) {
-      print("Status Code: ${e.response?.statusCode}");
-      print("Response: ${e.response?.data}");
-      print("Message: ${e.message}");
-      print('Error uploading file: $e');
-      // throw Exception('Error uploading file: $e');
-      return null;
+        return response.data["imageUrl"];
+      }
+
+      throw Exception("Upload failed");
+
+    } on DioException catch (e) {
+      throw Exception(
+        e.response?.data["message"] ??
+            "Unable to upload image",
+      );
+    } catch (e) {
+      throw Exception("An unexpected error occurred: $e");
     }
   }
+
+  Future<String> uploadChatImage(String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        "image": await MultipartFile.fromFile(filePath),
+        "uid": FirebaseAuth.instance.currentUser!.uid,
+      });
+
+      final response = await dio.post(
+        "${ApiConstants.baseUrl}/api/upload/chat",
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data["imageUrl"];
+      }
+
+      throw Exception("Upload failed");
+    } on DioException catch (e) {
+      throw Exception(
+        e.response?.data["message"] ??
+            "Unable to upload chat image",
+      );
+    } catch (e) {
+      throw Exception("An unexpected error occurred: $e");
+    }
+  }
+}
+
+class ApiConstants {
+  static const baseUrl = "http://10.0.2.2:5000";
 }

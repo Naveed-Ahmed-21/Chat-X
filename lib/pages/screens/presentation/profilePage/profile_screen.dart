@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chatx_app/config/imgepaths.dart';
 import 'package:chatx_app/controller/auth_controller.dart';
 import 'package:chatx_app/controller/profile_controller.dart';

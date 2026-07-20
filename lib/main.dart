@@ -2,7 +2,6 @@ import 'package:chatx_app/config/pagepaths.dart';
 import 'package:chatx_app/config/themes.dart';
 import 'package:chatx_app/controller/chat_controller.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
-import 'package:chatx_app/pages/screens/splashScreen/splash_screen.dart';
 import 'package:chatx_app/services/upload_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';

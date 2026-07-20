@@ -77,4 +77,36 @@ class DateTimeFormatter {
 
     return "Online ${DateFormat("h:mm a").format(dateTime)}";
   }
+
+  static String chatDate(DateTime? date) {
+    if (date == null) return "";
+
+    final now = DateTime.now();
+
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final yesterday = today.subtract(
+      const Duration(days: 1),
+    );
+
+    final target = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    );
+
+    if (target == today) {
+      return "Today";
+    }
+
+    if (target == yesterday) {
+      return "Yesterday";
+    }
+
+    return DateFormat("dd MMM yyyy").format(date);
+  }
 }

@@ -16,6 +16,15 @@ class MessageModel {
   final MessageType type;
   final String mediaUrl;
 
+  @JsonKey(defaultValue: "")
+  final String fileName;
+
+  @JsonKey(defaultValue: "")
+  final String thumbnail;
+
+  @JsonKey(defaultValue: 0)
+  final int duration;
+
   @JsonKey(
     fromJson: _fromJson,
     toJson: _toJson,
@@ -30,6 +39,8 @@ class MessageModel {
   final Map<String, dynamic> reactions;
   final String replyMessageId;
   final bool isDeleted;
+  final Map<String, dynamic> deletedFor;
+  final bool isEdited;
 
   MessageModel({
     required this.id,
@@ -43,6 +54,11 @@ class MessageModel {
     required this.reactions,
     required this.replyMessageId,
     required this.isDeleted,
+    this.deletedFor = const {},
+    this.isEdited = false,
+    required this.fileName,
+    required this.duration,
+    required this.thumbnail,
   });
 
   static DateTime? _fromJson(dynamic value) {
@@ -91,6 +107,12 @@ class MessageModel {
     Map<String, dynamic>? reactions,
     String? replyMessageId,
     bool? isDeleted,
+    Map<String, dynamic>? deletedFor,
+    bool? isEdited,
+    String? fileName,
+    int? duration,
+    String? thumbnail,
+
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -104,6 +126,11 @@ class MessageModel {
       reactions: reactions ?? this.reactions,
       replyMessageId: replyMessageId ?? this.replyMessageId,
       isDeleted: isDeleted ?? this.isDeleted,
+      deletedFor: deletedFor ?? this.deletedFor,
+      isEdited: isEdited ?? this.isEdited,
+      fileName: fileName ?? this.fileName ,
+      duration: duration ?? this.duration,
+      thumbnail: thumbnail ?? this.thumbnail,
     );
   }
 }

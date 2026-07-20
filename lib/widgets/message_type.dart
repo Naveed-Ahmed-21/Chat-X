@@ -3,5 +3,5 @@ enum MessageType {
   image,
   video,
   audio,
-  document,
+  file,
 }

@@ -2,6 +2,7 @@ import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/model/message_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../widgets/message_status.dart';
@@ -13,6 +14,8 @@ class ChatController extends GetxController {
   final ChatRoomController roomController = Get.find<ChatRoomController>();
 
   RxBool isLoading = false.obs;
+  Rxn<MessageModel> replyingMessage = Rxn<MessageModel>();
+
 
   Future<void> sendTextMessage({
     required String receiverId,
@@ -26,10 +29,11 @@ class ChatController extends GetxController {
       receiverId: receiverId,
       lastMessage: text,
     );
-    // await roomController.createOrUpdateRoom(
-    //   receiverId: receiverId,
-    //   lastMessage: text,
-    // );
+
+    final reply = replyingMessage.value;
+    final replyId = reply?.id ?? "";
+
+    cancelReply();
 
     await doc.set({
       "id": doc.id,
@@ -38,12 +42,20 @@ class ChatController extends GetxController {
       "message": text,
       "type": MessageType.text.name,
       "mediaUrl": "",
+
+      "fileName": "",
+      "duration": 0,
+      "thumbnail": "",
+
       "timeStamp": Timestamp.now(),
       "status": MessageStatus.sent.name,
       "reactions": {},
-      "replyMessageId": "",
+      "replyMessageId": replyId,
       "isDeleted": false,
+      "deletedFor": {},
+      "isEdited": false,
     });
+
     await roomFuture;
   }
 
@@ -54,11 +66,14 @@ class ChatController extends GetxController {
         .collection("messages")
         .orderBy("timeStamp", descending: false)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final uid = auth.currentUser!.uid;
+
+          return snapshot.docs
               .map((e) => MessageModel.fromJson(e.data()))
-              .toList(),
-        );
+              .where((m) => m.deletedFor[uid] != true)
+              .toList();
+        });
   }
 
   Future<void> markMessagesAsSeen(String roomId, String senderId) async {
@@ -108,7 +123,141 @@ class ChatController extends GetxController {
 
       await batch.commit();
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
     }
+  }
+
+  void startReply(MessageModel message) {
+    replyingMessage.value = message;
+  }
+
+  void cancelReply() {
+    replyingMessage.value = null;
+  }
+
+  Future<void> deleteForEveryone({
+    required String roomId,
+    required String messageId,
+  }) async {
+    await db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc(messageId)
+        .update({"message": "", "mediaUrl": "", "isDeleted": true});
+  }
+
+  Future<void> deleteForMe({
+    required String roomId,
+    required String messageId,
+  }) async {
+    final uid = auth.currentUser!.uid;
+
+    await db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc(messageId)
+        .update({"deletedFor.$uid": true});
+  }
+
+  Future<void> editMessage({
+    required String roomId,
+    required String messageId,
+    required String newMessage,
+  }) async {
+    await db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc(messageId)
+        .update({
+      "message": newMessage,
+      "isEdited": true,
+    });
+
+
+    await db
+        .collection("chats")
+        .doc(roomId)
+        .update({
+      "lastMessage": newMessage,
+    });
+  }
+
+  Future<void> reactToMessage({
+    required String roomId,
+    required String messageId,
+    required String emoji,
+    required Map<String, dynamic> reactions,
+  }) async {
+    final uid = auth.currentUser!.uid;
+
+
+    final doc = db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc(messageId);
+
+    if (reactions[uid] == emoji) {
+      await doc.update({
+        "reactions.$uid": FieldValue.delete(),
+      });
+    } else {
+      await doc.update({
+        "reactions.$uid": emoji,
+      });
+    }
+  }
+
+  Future<void> sendImageMessage({
+    required String receiverId,
+    required String imageUrl,
+  }) async {
+
+    final roomId = roomController.getRoomId(receiverId);
+
+    final doc = db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc();
+
+    final roomFuture = roomController.createOrUpdateRoom(
+      receiverId: receiverId,
+      lastMessage: "📷 Photo",
+    );
+
+    final reply = replyingMessage.value;
+
+    final replyId = reply?.id ?? "";
+
+    cancelReply();
+
+    await doc.set({
+      "id": doc.id,
+      "senderId": auth.currentUser!.uid,
+      "receiverId": receiverId,
+      "message": "",
+      "mediaUrl": imageUrl,
+
+      "fileName": "",
+      "duration": 0,
+      "thumbnail": "",
+
+      "type": MessageType.image.name,
+      "timeStamp": Timestamp.now(),
+      "status": MessageStatus.sent.name,
+      "replyMessageId": replyId,
+      "reactions": {},
+      "deletedFor": {},
+      "isDeleted": false,
+      "isEdited": false,
+    });
+
+    await roomFuture;
   }
 }

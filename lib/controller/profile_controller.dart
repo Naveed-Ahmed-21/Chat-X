@@ -72,7 +72,7 @@ class ProfileController extends GetxController {
       String profileUrl = currentUser.value?.profilePic ?? "";
 
       if (imagePath.value.isNotEmpty) {
-        final url = await uploadService.uploadFile(imagePath.value);
+        final url = await uploadService.uploadImage(imagePath.value);
 
         if (url != null) {
           profileUrl = url;

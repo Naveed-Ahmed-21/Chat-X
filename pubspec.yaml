@@ -50,6 +50,9 @@ dependencies:
   uuid: ^4.5.3
   intl: ^0.20.3
   scrollable_positioned_list: ^0.3.8
+  swipe_to: ^1.0.6
+  mime: ^2.0.0
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:

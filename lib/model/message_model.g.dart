@@ -18,6 +18,11 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   reactions: json['reactions'] as Map<String, dynamic>,
   replyMessageId: json['replyMessageId'] as String,
   isDeleted: json['isDeleted'] as bool,
+  deletedFor: json['deletedFor'] as Map<String, dynamic>? ?? const {},
+  isEdited: json['isEdited'] as bool? ?? false,
+  fileName: json['fileName'] as String? ?? '',
+  duration: (json['duration'] as num?)?.toInt() ?? 0,
+  thumbnail: json['thumbnail'] as String? ?? '',
 );
 
 Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
@@ -28,11 +33,16 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'message': instance.message,
       'type': _$MessageTypeEnumMap[instance.type]!,
       'mediaUrl': instance.mediaUrl,
+      'fileName': instance.fileName,
+      'thumbnail': instance.thumbnail,
+      'duration': instance.duration,
       'timeStamp': MessageModel._toJson(instance.timeStamp),
       'status': MessageModel._statusToJson(instance.status),
       'reactions': instance.reactions,
       'replyMessageId': instance.replyMessageId,
       'isDeleted': instance.isDeleted,
+      'deletedFor': instance.deletedFor,
+      'isEdited': instance.isEdited,
     };
 
 const _$MessageTypeEnumMap = {
@@ -40,5 +50,5 @@ const _$MessageTypeEnumMap = {
   MessageType.image: 'image',
   MessageType.video: 'video',
   MessageType.audio: 'audio',
-  MessageType.document: 'document',
+  MessageType.file: 'file',
 };
