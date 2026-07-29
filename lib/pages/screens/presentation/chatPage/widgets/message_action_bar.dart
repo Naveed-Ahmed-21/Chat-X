@@ -31,7 +31,7 @@ class MessageActionBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(.25),
+              color: Colors.black.withValues(alpha: .25),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),

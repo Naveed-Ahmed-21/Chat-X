@@ -16,7 +16,6 @@ class ChatController extends GetxController {
   RxBool isLoading = false.obs;
   Rxn<MessageModel> replyingMessage = Rxn<MessageModel>();
 
-
   Future<void> sendTextMessage({
     required String receiverId,
     required String text,
@@ -173,16 +172,9 @@ class ChatController extends GetxController {
         .doc(roomId)
         .collection("messages")
         .doc(messageId)
-        .update({
-      "message": newMessage,
-      "isEdited": true,
-    });
+        .update({"message": newMessage, "isEdited": true});
 
-
-    await db
-        .collection("chats")
-        .doc(roomId)
-        .update({
+    await db.collection("chats").doc(roomId).update({
       "lastMessage": newMessage,
     });
   }
@@ -195,7 +187,6 @@ class ChatController extends GetxController {
   }) async {
     final uid = auth.currentUser!.uid;
 
-
     final doc = db
         .collection("chats")
         .doc(roomId)
@@ -203,28 +194,20 @@ class ChatController extends GetxController {
         .doc(messageId);
 
     if (reactions[uid] == emoji) {
-      await doc.update({
-        "reactions.$uid": FieldValue.delete(),
-      });
+      await doc.update({"reactions.$uid": FieldValue.delete()});
     } else {
-      await doc.update({
-        "reactions.$uid": emoji,
-      });
+      await doc.update({"reactions.$uid": emoji});
     }
   }
 
   Future<void> sendImageMessage({
     required String receiverId,
     required String imageUrl,
+    String caption = "",
   }) async {
-
     final roomId = roomController.getRoomId(receiverId);
 
-    final doc = db
-        .collection("chats")
-        .doc(roomId)
-        .collection("messages")
-        .doc();
+    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
 
     final roomFuture = roomController.createOrUpdateRoom(
       receiverId: receiverId,
@@ -241,7 +224,7 @@ class ChatController extends GetxController {
       "id": doc.id,
       "senderId": auth.currentUser!.uid,
       "receiverId": receiverId,
-      "message": "",
+      "message": caption,
       "mediaUrl": imageUrl,
 
       "fileName": "",
@@ -249,6 +232,48 @@ class ChatController extends GetxController {
       "thumbnail": "",
 
       "type": MessageType.image.name,
+      "timeStamp": Timestamp.now(),
+      "status": MessageStatus.sent.name,
+      "replyMessageId": replyId,
+      "reactions": {},
+      "deletedFor": {},
+      "isDeleted": false,
+      "isEdited": false,
+    });
+
+    await roomFuture;
+  }
+
+  Future<void> sendVideoMessage({
+    required String receiverId,
+    required String videoUrl,
+    required int duration,
+    required String thumbnail,
+  }) async {
+    final roomId = roomController.getRoomId(receiverId);
+
+    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+
+    final roomFuture = roomController.createOrUpdateRoom(
+      receiverId: receiverId,
+      lastMessage: "🎥 Video",
+    );
+
+    final reply = replyingMessage.value;
+    final replyId = reply?.id ?? "";
+
+    cancelReply();
+
+    await doc.set({
+      "id": doc.id,
+      "senderId": auth.currentUser!.uid,
+      "receiverId": receiverId,
+      "message": "",
+      "mediaUrl": videoUrl,
+      "type": MessageType.video.name,
+      "fileName": "",
+      "duration": duration,
+      "thumbnail": thumbnail,
       "timeStamp": Timestamp.now(),
       "status": MessageStatus.sent.name,
       "replyMessageId": replyId,

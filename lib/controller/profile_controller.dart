@@ -74,9 +74,7 @@ class ProfileController extends GetxController {
       if (imagePath.value.isNotEmpty) {
         final url = await uploadService.uploadImage(imagePath.value);
 
-        if (url != null) {
-          profileUrl = url;
-        }
+        profileUrl = url;
       }
 
       await db.collection("users").doc(auth.currentUser!.uid).update({

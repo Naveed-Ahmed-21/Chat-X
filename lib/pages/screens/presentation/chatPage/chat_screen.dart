@@ -6,6 +6,7 @@ import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/date_separ
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/empty_chat_widget.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_overlay.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
@@ -20,6 +21,8 @@ import '../../../../model/message_model.dart';
 import '../../../../services/upload_service.dart';
 import '../../../../utils/date_time_formatter.dart';
 import '../../../../widgets/message_status.dart';
+import '../../../../widgets/message_type.dart';
+import '../../mediaPreview/media_preview_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final UserModel user;
@@ -33,8 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
   final ChatController chatController = Get.find();
   final ItemScrollController itemScrollController = ItemScrollController();
-  final ItemPositionsListener itemPositionsListener =
-      ItemPositionsListener.create();
+  final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
   final ImagePicker picker = ImagePicker();
   final UploadService uploadService = UploadService();
   TextEditingController messageController = TextEditingController();
@@ -69,7 +71,6 @@ class _ChatScreenState extends State<ChatScreen> {
     MessageOverlay.hide();
     super.dispose();
   }
-
 
   void scrollToLastMessage(int count) {
     if (!itemScrollController.isAttached) return;
@@ -276,25 +277,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void showMediaPicker() {
     Get.bottomSheet(
       SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: 20,
-          ),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
-          ),
+        child: Material(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
           child: Wrap(
             children: [
-
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: const Text("Gallery"),
                 onTap: () {
                   Get.back();
-                  pickImage(ImageSource.gallery);
+                  pickMultipleImages();
                 },
               ),
 
@@ -303,7 +296,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 title: const Text("Camera"),
                 onTap: () {
                   Get.back();
-                  pickImage(ImageSource.camera);
+                  pickCameraImage();
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.video_library),
+                title: const Text("Video"),
+                onTap: () {
+                  Get.back();
+                  pickVideoFromGallery();
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.videocam),
+                title: const Text("Record Video"),
+                onTap: () {
+                  Get.back();
+                  recordVideo();
                 },
               ),
 
@@ -319,15 +330,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> pickImage(ImageSource source) async {
+  Future<void> pickVideoFromGallery() async {
+    final video = await picker.pickVideo(
+      source: ImageSource.gallery,
+    );
+
+    if (video == null) return;
+
     try {
-      final XFile? file = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-      );
-
-      if (file == null) return;
-
       Get.dialog(
         const Center(
           child: CircularProgressIndicator(),
@@ -335,32 +345,108 @@ class _ChatScreenState extends State<ChatScreen> {
         barrierDismissible: false,
       );
 
-      final imageUrl = await uploadService.uploadImage(file.path);
+      final result = await uploadService.uploadVideo(video.path);
+      final String? thumbnailPath = result["thumbnail"];
+      final thumbnailUrl = thumbnailPath != null
+          ? await uploadService.uploadChatImage(thumbnailPath)
+          : "";
 
-      Get.back();
-
-      if (imageUrl == "") {
-        Get.snackbar(
-          "Upload Failed",
-          "Unable to upload image",
-        );
-        return;
-      }
-
-      await chatController.sendImageMessage(
+      await chatController.sendVideoMessage(
         receiverId: widget.user.uid,
-        imageUrl: imageUrl,
+        videoUrl: result["videoUrl"],
+        duration: result["duration"],
+        thumbnail: thumbnailUrl,
       );
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
     } catch (e) {
       if (Get.isDialogOpen ?? false) {
         Get.back();
       }
 
       Get.snackbar(
-        "Error",
+        "Upload Failed",
         e.toString(),
       );
     }
+  }
+
+  Future<void> recordVideo() async {
+    final file = await picker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(minutes: 5),
+    );
+
+    if (file == null) return;
+
+    try {
+      Get.dialog(
+        const Center(
+          child: CircularProgressIndicator(),
+        ),
+        barrierDismissible: false,
+      );
+
+      final result = await uploadService.uploadVideo(file.path);
+      final String? thumbnailPath = result["thumbnail"];
+      final thumbnailUrl = thumbnailPath != null
+          ? await uploadService.uploadChatImage(thumbnailPath)
+          : "";
+
+      await chatController.sendVideoMessage(
+        receiverId: widget.user.uid,
+        videoUrl: result["videoUrl"],
+        duration: result["duration"],
+        thumbnail: thumbnailUrl,
+      );
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+
+      Get.snackbar(
+        "Upload Failed",
+        e.toString(),
+      );
+    }
+  }
+
+  Future<void> pickMultipleImages() async {
+    try {
+      final files = await picker.pickMultiImage(imageQuality: 80);
+
+      if (files.isEmpty) return;
+
+      Get.to(
+        () => MediaPreviewScreen(files: files, receiverId: widget.user.uid),
+      );
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      Get.snackbar("Error", e.toString());
+    }
+  }
+
+  Future<void> pickCameraImage() async {
+    final file = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (file == null) return;
+
+    final imageUrl = await uploadService.uploadChatImage(file.path);
+
+    await chatController.sendImageMessage(
+      receiverId: widget.user.uid,
+      imageUrl: imageUrl,
+    );
   }
 
   @override
@@ -441,11 +527,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  print(snapshot.error);
+                  if (kDebugMode) {
+                    print(snapshot.error);
+                  }
 
-                  return Center(
-                    child: Text(snapshot.error.toString()),
-                  );
+                  return Center(child: Text(snapshot.error.toString()));
                 }
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -507,7 +593,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
-                      
+
+                      final imageMessages = messages
+                          .where((m) => m.type == MessageType.image)
+                          .toList();
+
+                      final currentImageIndex = imageMessages.indexWhere(
+                        (m) => m.id == message.id,
+                      );
+
                       // Use a ValueKey to help Flutter track items correctly and avoid GlobalKey conflicts
                       final itemKey = ValueKey(message.id);
 
@@ -580,113 +674,119 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                             ),
 
-                          Builder(builder: (messageContext) {
-                            return GestureDetector(
-                              onLongPress: () {
-                                MessageOverlay.show(
-                                  context: context,
-                                  messageContext: messageContext,
-                            
-                                  message: message,
-                                  isComing: isComing,
-                            
-                                  repliedMessage: repliedMessage,
-                                  repliedSenderName: repliedSenderName,
-                            
-                                  showEdit: !isComing,
-                            
-                                  onReaction: (emoji) async {
-                                    await chatController.reactToMessage(
-                                      roomId: roomId,
-                                      messageId: message.id,
-                                      emoji: emoji,
-                                      reactions: message.reactions,
-                                    );
-                                  },
-                            
-                                  onReply: () {
-                                    chatController.startReply(message);
-                                    messageFocus.requestFocus();
-                                  },
-                            
-                                  onCopy: () async {
-                                    await Clipboard.setData(
-                                      ClipboardData(text: message.message),
-                                    );
-                            
-                                    Get.snackbar(
-                                      "Copied",
-                                      "Message copied",
-                                      snackPosition: SnackPosition.BOTTOM,
-                                    );
-                                  },
-                            
-                                  onEdit: () {
-                                    showEditDialog(message);
-                                  },
-                            
-                                  onDelete: () {
-                            
-                                    MessageOverlay.hide();
-                            
-                                    Future.delayed(
-                                      const Duration(milliseconds: 120),
-                                          () {
-                                        showDeleteConfirmation(
-                                          message,
-                                          isComing,
-                                        );
-                                      },
-                                    );
-                            
-                                  },
-                            
-                                  onShow: () {
-                                    selectedMessageId.value = message.id;
-                                  },
-                            
-                                  onDismiss: () {
-                                    selectedMessageId.value = "";
-                                  },
-                                );
-                              },
-                              child: SwipeTo(
-                                onRightSwipe: isComing
-                                    ? (details) {
-                                        chatController.startReply(message);
-                                        messageFocus.requestFocus();
-                                      }
-                                    : null,
-                            
-                                onLeftSwipe: !isComing
-                                    ? (details) {
-                                        chatController.startReply(message);
-                                        messageFocus.requestFocus();
-                                      }
-                                    : null,
-                                animationDuration: const Duration(
-                                  milliseconds: 180,
-                                ),
-                            
-                                offsetDx: 0.22,
-                            
-                                child: ChatType(
-                                  message: message.message,
-                                  imageUrl: message.mediaUrl,
-                                  isDeleted: message.isDeleted,
-                                  repliedMessage: repliedMessage,
-                                  repliedSenderName: repliedSenderName,
-                                  isComing: isComing,
-                                  time: DateTimeFormatter.formatTime(
-                                    message.timeStamp,
+                          Builder(
+                            builder: (messageContext) {
+                              return GestureDetector(
+                                onLongPress: () {
+                                  MessageOverlay.show(
+                                    context: context,
+                                    messageContext: messageContext,
+
+                                    message: message,
+                                    isComing: isComing,
+
+                                    repliedMessage: repliedMessage,
+                                    repliedSenderName: repliedSenderName,
+
+                                    showEdit: !isComing,
+
+                                    onReaction: (emoji) async {
+                                      await chatController.reactToMessage(
+                                        roomId: roomId,
+                                        messageId: message.id,
+                                        emoji: emoji,
+                                        reactions: message.reactions,
+                                      );
+                                    },
+
+                                    onReply: () {
+                                      chatController.startReply(message);
+                                      messageFocus.requestFocus();
+                                    },
+
+                                    onCopy: () async {
+                                      await Clipboard.setData(
+                                        ClipboardData(text: message.message),
+                                      );
+
+                                      Get.snackbar(
+                                        "Copied",
+                                        "Message copied",
+                                        snackPosition: SnackPosition.BOTTOM,
+                                      );
+                                    },
+
+                                    onEdit: () {
+                                      showEditDialog(message);
+                                    },
+
+                                    onDelete: () {
+                                      MessageOverlay.hide();
+
+                                      Future.delayed(
+                                        const Duration(milliseconds: 120),
+                                        () {
+                                          showDeleteConfirmation(
+                                            message,
+                                            isComing,
+                                          );
+                                        },
+                                      );
+                                    },
+
+                                    onShow: () {
+                                      selectedMessageId.value = message.id;
+                                    },
+
+                                    onDismiss: () {
+                                      selectedMessageId.value = "";
+                                    },
+                                  );
+                                },
+                                child: SwipeTo(
+                                  onRightSwipe: isComing
+                                      ? (details) {
+                                          chatController.startReply(message);
+                                          messageFocus.requestFocus();
+                                        }
+                                      : null,
+
+                                  onLeftSwipe: !isComing
+                                      ? (details) {
+                                          chatController.startReply(message);
+                                          messageFocus.requestFocus();
+                                        }
+                                      : null,
+                                  animationDuration: const Duration(
+                                    milliseconds: 180,
                                   ),
-                                  status: message.status,
-                                  isEdited: message.isEdited,
-                                  reactions: message.reactions,
+
+                                  offsetDx: 0.22,
+
+                                  child: ChatType(
+                                    messageModel: message,
+                                    type: message.type,
+                                    imageUrl: message.mediaUrl,
+                                    thumbnail: message.thumbnail,
+                                    imageMessages: imageMessages,
+                                    currentImageIndex: currentImageIndex,
+                                    heroTag: message.id,
+                                    message: message.message,
+                                    isDeleted: message.isDeleted,
+                                    repliedMessage: repliedMessage,
+                                    repliedSenderName: repliedSenderName,
+                                    isComing: isComing,
+                                    time: DateTimeFormatter.formatTime(
+                                      message.timeStamp,
+                                    ),
+                                    status: message.status,
+                                    isEdited: message.isEdited,
+                                    reactions: message.reactions,
+                                  ),
                                 ),
-                              ),
-                            );
-                          }),
+                              );
+                            },
+                          ),
                         ],
                       );
                     },
