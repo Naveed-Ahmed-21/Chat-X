@@ -200,9 +200,11 @@ class ChatController extends GetxController {
     }
   }
 
-  Future<void> sendImageMessage({
+  Future<String> sendImageMessage({
     required String receiverId,
     required String imageUrl,
+    String localPath = "",
+    MessageStatus status = MessageStatus.sent,
     String caption = "",
   }) async {
     final roomId = roomController.getRoomId(receiverId);
@@ -226,6 +228,7 @@ class ChatController extends GetxController {
       "receiverId": receiverId,
       "message": caption,
       "mediaUrl": imageUrl,
+      "localPath": localPath,
 
       "fileName": "",
       "duration": 0,
@@ -233,7 +236,7 @@ class ChatController extends GetxController {
 
       "type": MessageType.image.name,
       "timeStamp": Timestamp.now(),
-      "status": MessageStatus.sent.name,
+      "status": status.name,
       "replyMessageId": replyId,
       "reactions": {},
       "deletedFor": {},
@@ -242,13 +245,16 @@ class ChatController extends GetxController {
     });
 
     await roomFuture;
+    return doc.id;
   }
 
-  Future<void> sendVideoMessage({
+  Future<String> sendVideoMessage({
     required String receiverId,
     required String videoUrl,
     required int duration,
     required String thumbnail,
+    String localPath = "",
+    MessageStatus status = MessageStatus.sent,
   }) async {
     final roomId = roomController.getRoomId(receiverId);
 
@@ -270,12 +276,13 @@ class ChatController extends GetxController {
       "receiverId": receiverId,
       "message": "",
       "mediaUrl": videoUrl,
+      "localPath": localPath,
       "type": MessageType.video.name,
       "fileName": "",
       "duration": duration,
       "thumbnail": thumbnail,
       "timeStamp": Timestamp.now(),
-      "status": MessageStatus.sent.name,
+      "status": status.name,
       "replyMessageId": replyId,
       "reactions": {},
       "deletedFor": {},
@@ -284,5 +291,112 @@ class ChatController extends GetxController {
     });
 
     await roomFuture;
+    return doc.id;
+  }
+
+  Future<String> sendAudioMessage({
+    required String receiverId,
+    required String audioUrl,
+    required int duration,
+    String localPath = "",
+    MessageStatus status = MessageStatus.sent,
+  }) async {
+    final roomId = roomController.getRoomId(receiverId);
+
+    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+
+    final roomFuture = roomController.createOrUpdateRoom(
+      receiverId: receiverId,
+      lastMessage: "🎤 Voice message",
+    );
+
+    final reply = replyingMessage.value;
+    final replyId = reply?.id ?? "";
+
+    cancelReply();
+
+    await doc.set({
+      "id": doc.id,
+      "senderId": auth.currentUser!.uid,
+      "receiverId": receiverId,
+      "message": "",
+      "mediaUrl": audioUrl,
+      "localPath": localPath,
+      "type": MessageType.audio.name,
+
+      "fileName": "",
+      "thumbnail": "",
+      "duration": duration,
+
+      "timeStamp": Timestamp.now(),
+      "status": status.name,
+      "replyMessageId": replyId,
+      "reactions": {},
+      "deletedFor": {},
+      "isDeleted": false,
+      "isEdited": false,
+    });
+
+    await roomFuture;
+    return doc.id;
+  }
+
+  Future<String> sendFileMessage({
+    required String receiverId,
+    required String fileUrl,
+    required String fileName,
+    String localPath = "",
+    MessageStatus status = MessageStatus.sent,
+  }) async {
+    final roomId = roomController.getRoomId(receiverId);
+
+    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+
+    final roomFuture = roomController.createOrUpdateRoom(
+      receiverId: receiverId,
+      lastMessage: "📄 $fileName",
+    );
+
+    final reply = replyingMessage.value;
+    final replyId = reply?.id ?? "";
+
+    cancelReply();
+
+    await doc.set({
+      "id": doc.id,
+      "senderId": auth.currentUser!.uid,
+      "receiverId": receiverId,
+      "message": "",
+      "mediaUrl": fileUrl,
+      "localPath": localPath,
+      "type": MessageType.file.name,
+      "fileName": fileName,
+      "duration": 0,
+      "thumbnail": "",
+      "timeStamp": Timestamp.now(),
+      "status": status.name,
+      "replyMessageId": replyId,
+      "reactions": {},
+      "deletedFor": {},
+      "isDeleted": false,
+      "isEdited": false,
+    });
+
+    await roomFuture;
+    return doc.id;
+  }
+
+  Future<void> updateMessage(
+    String receiverId,
+    String messageId,
+    Map<String, dynamic> data,
+  ) async {
+    final roomId = roomController.getRoomId(receiverId);
+    await db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc(messageId)
+        .update(data);
   }
 }

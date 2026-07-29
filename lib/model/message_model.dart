@@ -17,6 +17,9 @@ class MessageModel {
   final String mediaUrl;
 
   @JsonKey(defaultValue: "")
+  final String localPath;
+
+  @JsonKey(defaultValue: "")
   final String fileName;
 
   @JsonKey(defaultValue: "")
@@ -49,6 +52,7 @@ class MessageModel {
     required this.message,
     required this.type,
     required this.mediaUrl,
+    this.localPath = "",
     this.timeStamp,
     required this.status,
     required this.reactions,
@@ -102,6 +106,7 @@ class MessageModel {
     String? message,
     MessageType? type,
     String? mediaUrl,
+    String? localPath,
     DateTime? timeStamp,
     MessageStatus? status,
     Map<String, dynamic>? reactions,
@@ -121,6 +126,7 @@ class MessageModel {
       message: message ?? this.message,
       type: type ?? this.type,
       mediaUrl: mediaUrl ?? this.mediaUrl,
+      localPath: localPath ?? this.localPath,
       timeStamp: timeStamp ?? this.timeStamp,
       status: status ?? this.status,
       reactions: reactions ?? this.reactions,

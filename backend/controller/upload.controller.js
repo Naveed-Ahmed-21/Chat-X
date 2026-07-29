@@ -95,8 +95,46 @@ const uploadVideo = async (req, res) => {
   }
 };
 
+const uploadAudio = async (req, res) => {
+  try {
+
+    console.log("AUDIO API HIT");
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No audio selected",
+      });
+    }
+
+    const uid = req.body.uid;
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "ChatX/Audio",
+      resource_type: "video",
+      public_id: `${uid}_${Date.now()}`,
+    });
+
+    return res.json({
+      success: true,
+      audioUrl: result.secure_url,
+    });
+
+  } catch (e) {
+
+    console.log(e);
+
+    return res.status(500).json({
+      success: false,
+      message: e.message,
+    });
+
+  }
+};
+
 module.exports = {
   uploadImage,
   uploadChatImage,
   uploadVideo,
+  uploadAudio,
 };

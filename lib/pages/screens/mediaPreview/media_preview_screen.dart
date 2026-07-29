@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:chatx_app/widgets/message_status.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
@@ -57,35 +60,47 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   }
 
   Future<void> sendImages() async {
-
     if (controller.isUploading.value) return;
 
-    controller.isUploading.value = true;
+    final mediaList = List<SelectedMedia>.from(media);
+    final receiverId = widget.receiverId;
 
-    try {
-      for (int i = 0; i < media.length; i++) {
-        controller.progress.value = (i + 1) / media.length;
+    Get.back(); // Close screen immediately
 
-        final imageUrl = await uploadService.uploadChatImage(
-          media[i].file.path,
+    for (int i = 0; i < mediaList.length; i++) {
+      final path = mediaList[i].file.path;
+      final caption = mediaList[i].captionController.text.trim();
+
+      try {
+        // Optimistic send
+        final messageId = await chatController.sendImageMessage(
+          receiverId: receiverId,
+          imageUrl: "",
+          localPath: path,
+          status: MessageStatus.sending,
+          caption: caption,
         );
-        print(imageUrl);
 
-        await chatController.sendImageMessage(
-          receiverId: widget.receiverId,
-          imageUrl: imageUrl,
-          caption: media[i].captionController.text.trim(),
-        );
+        // Background upload
+        unawaited(() async {
+          try {
+            final imageUrl = await uploadService.uploadChatImage(path);
 
+            await chatController.updateMessage(
+              receiverId,
+              messageId,
+              {
+                "mediaUrl": imageUrl,
+                "status": MessageStatus.sent.name,
+              },
+            );
+          } catch (e) {
+            if (kDebugMode) print("Image upload error: $e");
+          }
+        }());
+      } catch (e) {
+        if (kDebugMode) print("Optimistic send error: $e");
       }
-
-      controller.isUploading.value = false;
-
-      Get.back();
-    } catch (e) {
-      controller.isUploading.value = false;
-
-      Get.snackbar("Error", e.toString());
     }
   }
 

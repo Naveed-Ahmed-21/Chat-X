@@ -102,6 +102,34 @@ class UploadService {
       throw Exception("An unexpected error occurred: $e");
     }
   }
+
+  Future<String> uploadAudio(String path) async {
+    try {
+      final formData = FormData.fromMap({
+        "audio": await MultipartFile.fromFile(path),
+        "uid": FirebaseAuth.instance.currentUser!.uid,
+      });
+
+      final response = await dio.post(
+        "${ApiConstants.baseUrl}/api/upload/audio",
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data["audioUrl"];
+      }
+
+      throw Exception("Upload failed");
+    } on DioException catch (e) {
+      throw Exception(
+        e.response?.data["message"] ??
+            "Unable to upload audio",
+      );
+    } catch (e) {
+      throw Exception("An unexpected error occurred: $e");
+    }
+  }
+
 }
 
 class ApiConstants {

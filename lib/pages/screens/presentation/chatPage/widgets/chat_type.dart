@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chatx_app/model/message_model.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_status_icon.dart';
 import 'package:chatx_app/widgets/message_status.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../../widgets/media/audio_message_widget.dart';
 import '../../../../../widgets/message_type.dart';
 import '../../../mediaPreview/media_viewer_screen.dart';
 import '../../../mediaPreview/video_player_screen.dart';
@@ -25,6 +27,7 @@ class ChatType extends StatelessWidget {
   final int currentImageIndex;
   final MessageType type;
   final MessageModel? messageModel;
+  final bool enableHero;
 
   const ChatType({
     super.key,
@@ -44,6 +47,7 @@ class ChatType extends StatelessWidget {
     required this.imageMessages,
     required this.currentImageIndex,
     this.messageModel,
+    this.enableHero = true,
   });
 
   @override
@@ -112,7 +116,9 @@ class ChatType extends StatelessWidget {
                   ? const EdgeInsets.all(4)
                   : const EdgeInsets.all(10),
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.sizeOf(context).width / 1.3,
+                maxWidth: (type == MessageType.image || type == MessageType.video)
+                    ? 250 + 8.0 // image width + padding
+                    : MediaQuery.sizeOf(context).width / 1.3,
               ),
               decoration: BoxDecoration(
                 borderRadius: isComing
@@ -217,29 +223,54 @@ class ChatType extends StatelessWidget {
                           ),
                         );
                       },
-                      child: Hero(
-                        tag:
-                            (currentImageIndex >= 0 &&
-                                currentImageIndex < imageMessages.length)
-                            ? "${imageMessages[currentImageIndex].id}_$currentImageIndex"
-                            : imageUrl,
+                      child: enableHero 
+                      ? Hero(
+                        tag: heroTag,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            width: 250,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              width: 250,
-                              height: 200,
-                              alignment: Alignment.center,
-                              child: const CircularProgressIndicator(),
-                            ),
-                            errorWidget: (_, __, ___) =>
-                                const Icon(Icons.broken_image),
-                          ),
+                          child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                              ? Image.file(
+                                  File(messageModel!.localPath),
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    width: 250,
+                                    height: 200,
+                                    alignment: Alignment.center,
+                                    child: const CircularProgressIndicator(),
+                                  ),
+                                  errorWidget: (_, __, ___) =>
+                                      const Icon(Icons.broken_image),
+                                ),
                         ),
-                      ),
+                      )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                              ? Image.file(
+                                  File(messageModel!.localPath),
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    width: 250,
+                                    height: 200,
+                                    alignment: Alignment.center,
+                                    child: const CircularProgressIndicator(),
+                                  ),
+                                  errorWidget: (_, __, ___) =>
+                                      const Icon(Icons.broken_image),
+                                ),
+                        ),
                     ),
                     if (message.isNotEmpty)
                       Padding(
@@ -289,34 +320,43 @@ class ChatType extends StatelessWidget {
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                thumbnail.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: thumbnail,
+                                (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                                    ? Image.file(
+                                        File(messageModel!.localPath),
                                         width: 250,
                                         height: 180,
                                         fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(
-                                          width: 250,
-                                          height: 180,
-                                          color: Colors.black26,
-                                          child: const Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                        ),
-                                        errorWidget: (_, __, ___) => Container(
-                                          width: 250,
-                                          height: 180,
-                                          color: Colors.black,
-                                          child: const Icon(Icons.videocam,
-                                              color: Colors.white54),
-                                        ),
                                       )
-                                    : Container(
-                                        width: 250,
-                                        height: 180,
-                                        color: Colors.black,
-                                        child: const Icon(Icons.videocam, color: Colors.white54),
-                                      ),
+                                    : (thumbnail.isNotEmpty || (imageUrl.contains("cloudinary") && imageUrl.contains("/video/upload/")))
+                                        ? CachedNetworkImage(
+                                            imageUrl: thumbnail.isNotEmpty 
+                                              ? thumbnail 
+                                              : imageUrl.replaceAll(RegExp(r'\.[^.]+$'), '.jpg'),
+                                            width: 250,
+                                            height: 180,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                              width: 250,
+                                              height: 180,
+                                              color: Colors.black26,
+                                              child: const Center(
+                                                child: CircularProgressIndicator(),
+                                              ),
+                                            ),
+                                            errorWidget: (_, __, ___) => Container(
+                                              width: 250,
+                                              height: 180,
+                                              color: Colors.black,
+                                              child: const Icon(Icons.videocam,
+                                                  color: Colors.white54),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: 250,
+                                            height: 180,
+                                            color: Colors.black,
+                                            child: const Icon(Icons.videocam, color: Colors.white54),
+                                          ),
 
                                 const CircleAvatar(
                                   radius: 28,
@@ -338,6 +378,12 @@ class ChatType extends StatelessWidget {
                         ),
                         child: Text(message),
                       ),
+                  ] else if (type == MessageType.audio) ...[
+                    AudioMessageWidget(
+                      audioUrl: imageUrl,
+                      localPath: messageModel?.localPath,
+                      initialDurationMs: messageModel?.duration,
+                    ),
                   ] else if (message.isNotEmpty)
                     Row(
                       mainAxisSize: MainAxisSize.min,

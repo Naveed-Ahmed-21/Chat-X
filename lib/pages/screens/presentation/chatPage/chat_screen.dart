@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chatx_app/config/imgepaths.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
@@ -14,11 +16,14 @@ import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:get/route_manager.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:swipe_to/swipe_to.dart';
 import '../../../../controller/chat_controller.dart';
 import '../../../../model/message_model.dart';
+import '../../../../services/audio_record_service.dart';
 import '../../../../services/upload_service.dart';
+import '../../../../services/video_thumbnail_service.dart';
 import '../../../../utils/date_time_formatter.dart';
 import '../../../../widgets/message_status.dart';
 import '../../../../widgets/message_type.dart';
@@ -36,19 +41,27 @@ class _ChatScreenState extends State<ChatScreen> {
   final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
   final ChatController chatController = Get.find();
   final ItemScrollController itemScrollController = ItemScrollController();
-  final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
+  final ItemPositionsListener itemPositionsListener =
+      ItemPositionsListener.create();
   final ImagePicker picker = ImagePicker();
   final UploadService uploadService = UploadService();
+  final VideoThumbnailService thumbnailService = VideoThumbnailService();
   TextEditingController messageController = TextEditingController();
-
+  final AudioRecordService audioService = AudioRecordService();
   final FocusNode messageFocus = FocusNode();
+
   late final roomId = chatRoomController.getRoomId(widget.user.uid);
   late final Stream<List<MessageModel>> messageStream;
   final RxString selectedMessageId = "".obs;
 
+  String? audioPath;
+
   int previousMessageCount = 0;
 
   final RxBool hasText = false.obs;
+  RxBool isRecording = false.obs;
+  final RxBool isRecordingCancelled = false.obs;
+
   bool hasInitialScroll = false;
   bool isAtBottom = true;
 
@@ -69,6 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     messageController.dispose();
     MessageOverlay.hide();
+    audioService.dispose();
     super.dispose();
   }
 
@@ -225,25 +239,48 @@ class _ChatScreenState extends State<ChatScreen> {
                 icon: const Icon(Icons.emoji_emotions_outlined),
               ),
 
-              Expanded(
-                child: TextField(
-                  controller: messageController,
-                  focusNode: messageFocus,
-                  minLines: 1,
-                  maxLines: 4,
-                  textAlignVertical: TextAlignVertical.center,
-                  decoration: const InputDecoration(
-                    hintText: "Type message...",
-                    isDense: true,
-                    border: InputBorder.none,
+              Obx(() {
+                if (isRecording.value) {
+                  return Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.mic, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Recording...",
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          "Slide to cancel",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.grey, size: 14),
+                        const SizedBox(width: 10),
+                      ],
+                    ),
+                  );
+                }
+                return Expanded(
+                  child: TextField(
+                    controller: messageController,
+                    focusNode: messageFocus,
+                    minLines: 1,
+                    maxLines: 4,
+                    textAlignVertical: TextAlignVertical.center,
+                    decoration: const InputDecoration(
+                      hintText: "Type message...",
+                      isDense: true,
+                      border: InputBorder.none,
+                    ),
                   ),
-                ),
-              ),
+                );
+              }),
 
-              IconButton(
+              Obx(() => isRecording.value ? const SizedBox() : IconButton(
                 onPressed: showMediaPicker,
                 icon: const Icon(Icons.photo_library_rounded),
-              ),
+              )),
 
               Obx(() {
                 return hasText.value
@@ -265,7 +302,51 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       )
-                    : IconButton(onPressed: () {}, icon: const Icon(Icons.mic));
+                    : Obx(
+                        () => GestureDetector(
+                          onLongPressStart: (_) async {
+                            isRecordingCancelled.value = false;
+                            await startRecording();
+                          },
+                          onLongPressMoveUpdate: (details) {
+                            if (details.localOffsetFromOrigin.dx < -100) {
+                              if (!isRecordingCancelled.value) {
+                                isRecordingCancelled.value = true;
+                                HapticFeedback.heavyImpact();
+                              }
+                            } else if (details.localOffsetFromOrigin.dx > -20) {
+                               if (isRecordingCancelled.value) {
+                                 isRecordingCancelled.value = false;
+                               }
+                            }
+                          },
+                          onLongPressEnd: (details) async {
+                            if (isRecordingCancelled.value) {
+                              await audioService.stopRecording();
+                              isRecording.value = false;
+                            } else {
+                              await stopRecording();
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isRecording.value
+                                  ? (isRecordingCancelled.value ? Colors.grey : Colors.red)
+                                  : Theme.of(context).colorScheme.primary,
+                            ),
+                            child: Icon(
+                              isRecording.value 
+                                  ? (isRecordingCancelled.value ? Icons.delete_outline : Icons.mic) 
+                                  : Icons.mic_none,
+                              color: Colors.white,
+                              size: isRecording.value ? 28 : 24,
+                            ),
+                          ),
+                        ),
+                      );
               }),
             ],
           ),
@@ -331,22 +412,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> pickVideoFromGallery() async {
-    final video = await picker.pickVideo(
-      source: ImageSource.gallery,
-    );
+    final video = await picker.pickVideo(source: ImageSource.gallery);
 
     if (video == null) return;
 
     try {
       Get.dialog(
-        const Center(
-          child: CircularProgressIndicator(),
-        ),
+        const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
 
+      final String? thumbnailPath = await thumbnailService.generateThumbnail(
+        video.path,
+      );
       final result = await uploadService.uploadVideo(video.path);
-      final String? thumbnailPath = result["thumbnail"];
+
       final thumbnailUrl = thumbnailPath != null
           ? await uploadService.uploadChatImage(thumbnailPath)
           : "";
@@ -366,10 +446,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Get.back();
       }
 
-      Get.snackbar(
-        "Upload Failed",
-        e.toString(),
-      );
+      Get.snackbar("Upload Failed", e.toString());
     }
   }
 
@@ -383,14 +460,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       Get.dialog(
-        const Center(
-          child: CircularProgressIndicator(),
-        ),
+        const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
 
+      final String? thumbnailPath = await thumbnailService.generateThumbnail(
+        file.path,
+      );
       final result = await uploadService.uploadVideo(file.path);
-      final String? thumbnailPath = result["thumbnail"];
+
       final thumbnailUrl = thumbnailPath != null
           ? await uploadService.uploadChatImage(thumbnailPath)
           : "";
@@ -410,10 +488,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Get.back();
       }
 
-      Get.snackbar(
-        "Upload Failed",
-        e.toString(),
-      );
+      Get.snackbar("Upload Failed", e.toString());
     }
   }
 
@@ -447,6 +522,60 @@ class _ChatScreenState extends State<ChatScreen> {
       receiverId: widget.user.uid,
       imageUrl: imageUrl,
     );
+  }
+
+  Future<void> startRecording() async {
+    try {
+      audioPath = await audioService.startRecording();
+
+      isRecording.value = true;
+    } catch (e) {
+      Get.snackbar("Permission", e.toString());
+    }
+  }
+
+  Future<void> stopRecording() async {
+    final path = await audioService.stopRecording();
+
+    isRecording.value = false;
+
+    if (path == null) return;
+
+    try {
+      final player = AudioPlayer();
+      await player.setFilePath(path);
+      final duration = player.duration?.inMilliseconds ?? 0;
+      await player.dispose();
+
+      // Optimistic sending
+      final String messageId = await chatController.sendAudioMessage(
+        receiverId: widget.user.uid,
+        audioUrl: "",
+        localPath: path,
+        duration: duration,
+        status: MessageStatus.sending,
+      );
+
+      // Background upload
+      unawaited(() async {
+        try {
+          final audioUrl = await uploadService.uploadAudio(path);
+
+          await chatController.updateMessage(
+            widget.user.uid,
+            messageId,
+            {
+              "mediaUrl": audioUrl,
+              "status": MessageStatus.sent.name,
+            },
+          );
+        } catch (e) {
+          if (kDebugMode) print("Audio upload error: $e");
+        }
+      }());
+    } catch (e) {
+      Get.snackbar("Error", e.toString());
+    }
   }
 
   @override
@@ -509,85 +638,81 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
 
-      body: Stack(
+      body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(
-              //bottom: 5,
-              top: 10,
-              left: 10,
-              right: 10,
-            ),
-
-            child: StreamBuilder<List<MessageModel>>(
-              stream: messageStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  if (kDebugMode) {
-                    print(snapshot.error);
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: StreamBuilder<List<MessageModel>>(
+                stream: messageStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
 
-                  return Center(child: Text(snapshot.error.toString()));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const EmptyChatWidget();
-                }
-
-                final messages = snapshot.data!;
-                final lastMessage = messages.last;
-                final currentUser = FirebaseAuth.instance.currentUser!.uid;
-                final firstUnreadIndex = messages.indexWhere(
-                  (m) =>
-                      m.receiverId == currentUser &&
-                      m.status != MessageStatus.seen,
-                );
-
-                if (lastMessage.senderId ==
-                        FirebaseAuth.instance.currentUser!.uid &&
-                    messages.length > previousMessageCount) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (messages.length > previousMessageCount) {
-                      previousMessageCount = messages.length;
-                      scrollToLastMessage(messages.length);
+                  if (snapshot.hasError) {
+                    if (kDebugMode) {
+                      print(snapshot.error);
                     }
-                  });
-                }
 
-                if (!hasInitialScroll) {
-                  hasInitialScroll = true;
+                    return Center(child: Text(snapshot.error.toString()));
+                  }
 
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    if (!itemScrollController.isAttached) return;
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const EmptyChatWidget();
+                  }
 
-                    if (firstUnreadIndex != -1) {
-                      // Show a few old messages above the first unread one
-                      final targetIndex = (firstUnreadIndex - 4).clamp(
-                        0,
-                        messages.length - 1,
+                  final messages = snapshot.data!;
+                  final lastMessage = messages.last;
+                  final currentUser = FirebaseAuth.instance.currentUser!.uid;
+                  final firstUnreadIndex = messages.indexWhere(
+                    (m) =>
+                        m.receiverId == currentUser &&
+                        m.status != MessageStatus.seen,
+                  );
+
+                  if (lastMessage.senderId ==
+                          FirebaseAuth.instance.currentUser!.uid &&
+                      messages.length > previousMessageCount) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (messages.length > previousMessageCount) {
+                        previousMessageCount = messages.length;
+                        scrollToLastMessage(messages.length);
+                      }
+                    });
+                  }
+
+                  if (!hasInitialScroll) {
+                    hasInitialScroll = true;
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                      if (!itemScrollController.isAttached) return;
+
+                      if (firstUnreadIndex != -1) {
+                        // Show a few old messages above the first unread one
+                        final targetIndex = (firstUnreadIndex - 4).clamp(
+                          0,
+                          messages.length - 1,
+                        );
+
+                        itemScrollController.jumpTo(index: targetIndex);
+                      } else {
+                        // No unread messages, open at the latest message
+                        itemScrollController.jumpTo(index: messages.length - 1);
+                      }
+
+                      // Wait for the scroll to finish
+                      await Future.delayed(const Duration(milliseconds: 500));
+
+                      // Now mark them as seen
+                      chatController.markMessagesAsSeen(
+                        roomId,
+                        widget.user.uid,
                       );
+                    });
+                  }
 
-                      itemScrollController.jumpTo(index: targetIndex);
-                    } else {
-                      // No unread messages, open at the latest message
-                      itemScrollController.jumpTo(index: messages.length - 1);
-                    }
-
-                    // Wait for the scroll to finish
-                    await Future.delayed(const Duration(milliseconds: 500));
-
-                    // Now mark them as seen
-                    chatController.markMessagesAsSeen(roomId, widget.user.uid);
-                  });
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 70),
-                  child: ScrollablePositionedList.builder(
+                  return ScrollablePositionedList.builder(
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
                     itemCount: messages.length,
@@ -790,15 +915,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         ],
                       );
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
+          SafeArea(top: false, child: buildMessageComposer()),
+          const SizedBox(height: 10),
         ],
       ),
-
-      bottomNavigationBar: SafeArea(top: false, child: buildMessageComposer()),
     );
   }
 }

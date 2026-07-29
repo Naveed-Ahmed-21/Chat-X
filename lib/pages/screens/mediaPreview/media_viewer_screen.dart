@@ -73,23 +73,26 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             final image = widget.images[index];
 
             return Center(
-              child: PhotoView(
-                imageProvider: CachedNetworkImageProvider(image.mediaUrl),
-                loadingBuilder: (context, event) => const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.broken_image, color: Colors.white, size: 50),
-                      SizedBox(height: 10),
-                      Text("Image not available", style: TextStyle(color: Colors.white)),
-                    ],
+              child: Hero(
+                tag: image.id,
+                child: PhotoView(
+                  imageProvider: CachedNetworkImageProvider(image.mediaUrl),
+                  loadingBuilder: (context, event) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white, size: 50),
+                        SizedBox(height: 10),
+                        Text("Image not available", style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                  minScale: PhotoViewComputedScale.contained,
+                  maxScale: PhotoViewComputedScale.covered * 2,
                 ),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 2,
               ),
             );
           },
