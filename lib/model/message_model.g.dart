@@ -13,6 +13,7 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   message: json['message'] as String,
   type: $enumDecode(_$MessageTypeEnumMap, json['type']),
   mediaUrl: json['mediaUrl'] as String,
+  localPath: json['localPath'] as String? ?? '',
   timeStamp: MessageModel._fromJson(json['timeStamp']),
   status: MessageModel._statusFromJson(json['status'] as String),
   reactions: json['reactions'] as Map<String, dynamic>,
@@ -21,8 +22,10 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   deletedFor: json['deletedFor'] as Map<String, dynamic>? ?? const {},
   isEdited: json['isEdited'] as bool? ?? false,
   fileName: json['fileName'] as String? ?? '',
+  fileSize: (json['fileSize'] as num?)?.toInt() ?? 0,
   duration: (json['duration'] as num?)?.toInt() ?? 0,
   thumbnail: json['thumbnail'] as String? ?? '',
+  extension: json['extension'] as String? ?? '',
 );
 
 Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
@@ -33,9 +36,12 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'message': instance.message,
       'type': _$MessageTypeEnumMap[instance.type]!,
       'mediaUrl': instance.mediaUrl,
+      'localPath': instance.localPath,
       'fileName': instance.fileName,
+      'fileSize': instance.fileSize,
       'thumbnail': instance.thumbnail,
       'duration': instance.duration,
+      'extension': instance.extension,
       'timeStamp': MessageModel._toJson(instance.timeStamp),
       'status': MessageModel._statusToJson(instance.status),
       'reactions': instance.reactions,

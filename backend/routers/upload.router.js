@@ -8,6 +8,7 @@ const {
   uploadChatImage,
   uploadVideo,
   uploadAudio,
+  uploadFile,
 } = require("../controller/upload.controller");
 
 router.post(
@@ -32,6 +33,12 @@ router.post(
     "/audio",
     upload.single("audio"),
     uploadAudio
+);
+
+router.post(
+  "/file",
+  upload.single("file"),
+  uploadFile
 );
 
 

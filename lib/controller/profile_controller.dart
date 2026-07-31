@@ -2,6 +2,7 @@ import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/services/upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,9 +45,12 @@ class ProfileController extends GetxController {
 
   Future<void> getUserDetails() async {
     try {
+      final user = auth.currentUser;
+      if (user == null) return;
+
       final doc = await db
           .collection("users")
-          .doc(auth.currentUser!.uid)
+          .doc(user.uid)
           .get();
 
       if (doc.exists && doc.data() != null) {
@@ -60,7 +64,7 @@ class ProfileController extends GetxController {
       }
 
     } catch (e) {
-      Get.snackbar("Error", e.toString());
+      if (kDebugMode) print("Error fetching user details: $e");
     }
   }
 

@@ -42,6 +42,7 @@ class ChatController extends GetxController {
       "type": MessageType.text.name,
       "mediaUrl": "",
 
+      "extension": "",
       "fileName": "",
       "duration": 0,
       "thumbnail": "",
@@ -229,11 +230,10 @@ class ChatController extends GetxController {
       "message": caption,
       "mediaUrl": imageUrl,
       "localPath": localPath,
-
+      "extension": "",
       "fileName": "",
       "duration": 0,
       "thumbnail": "",
-
       "type": MessageType.image.name,
       "timeStamp": Timestamp.now(),
       "status": status.name,
@@ -278,6 +278,7 @@ class ChatController extends GetxController {
       "mediaUrl": videoUrl,
       "localPath": localPath,
       "type": MessageType.video.name,
+      "extension": "",
       "fileName": "",
       "duration": duration,
       "thumbnail": thumbnail,
@@ -323,11 +324,10 @@ class ChatController extends GetxController {
       "mediaUrl": audioUrl,
       "localPath": localPath,
       "type": MessageType.audio.name,
-
+      "extension": "",
       "fileName": "",
       "thumbnail": "",
       "duration": duration,
-
       "timeStamp": Timestamp.now(),
       "status": status.name,
       "replyMessageId": replyId,
@@ -341,16 +341,68 @@ class ChatController extends GetxController {
     return doc.id;
   }
 
+  // Future<String> sendFileMessage({
+  //   required String receiverId,
+  //   required String fileUrl,
+  //   required String fileName,
+  //   String localPath = "",
+  //   MessageStatus status = MessageStatus.sent,
+  // }) async {
+  //   final roomId = roomController.getRoomId(receiverId);
+  //
+  //   final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+  //
+  //   final roomFuture = roomController.createOrUpdateRoom(
+  //     receiverId: receiverId,
+  //     lastMessage: "📄 $fileName",
+  //   );
+  //
+  //   final reply = replyingMessage.value;
+  //   final replyId = reply?.id ?? "";
+  //
+  //   cancelReply();
+  //
+  //   await doc.set({
+  //     "id": doc.id,
+  //     "senderId": auth.currentUser!.uid,
+  //     "receiverId": receiverId,
+  //     "message": "",
+  //     "mediaUrl": fileUrl,
+  //     "localPath": localPath,
+  //     "type": MessageType.file.name,
+  //     "fileName": fileName,
+  //     "duration": 0,
+  //     "thumbnail": "",
+  //     "timeStamp": Timestamp.now(),
+  //     "status": status.name,
+  //     "replyMessageId": replyId,
+  //     "reactions": {},
+  //     "deletedFor": {},
+  //     "isDeleted": false,
+  //     "isEdited": false,
+  //   });
+  //
+  //   await roomFuture;
+  //   return doc.id;
+  // }
+
   Future<String> sendFileMessage({
     required String receiverId,
     required String fileUrl,
     required String fileName,
+    required int fileSize,
+    required String extension,
     String localPath = "",
     MessageStatus status = MessageStatus.sent,
   }) async {
+
     final roomId = roomController.getRoomId(receiverId);
 
-    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+    final doc = db
+        .collection("chats")
+        .doc(roomId)
+        .collection("messages")
+        .doc();
 
     final roomFuture = roomController.createOrUpdateRoom(
       receiverId: receiverId,
@@ -366,15 +418,23 @@ class ChatController extends GetxController {
       "id": doc.id,
       "senderId": auth.currentUser!.uid,
       "receiverId": receiverId,
+
       "message": "",
       "mediaUrl": fileUrl,
       "localPath": localPath,
+
       "type": MessageType.file.name,
+
       "fileName": fileName,
-      "duration": 0,
+      "fileSize": fileSize,
+      "extension": extension,
+
       "thumbnail": "",
+      "duration": 0,
+
       "timeStamp": Timestamp.now(),
       "status": status.name,
+
       "replyMessageId": replyId,
       "reactions": {},
       "deletedFor": {},
@@ -399,4 +459,6 @@ class ChatController extends GetxController {
         .doc(messageId)
         .update(data);
   }
+
+
 }

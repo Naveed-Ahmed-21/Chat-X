@@ -13,6 +13,7 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'controller/auth_controller.dart';
 import 'controller/profile_controller.dart';
 import 'controller/user_contact_controller.dart';
+import 'services/download_service.dart';
 import 'widgets/firebase_options.dart';
 
 void main() async {
@@ -51,6 +52,7 @@ class InitialBinding extends Bindings {
   void dependencies() {
     Get.put(AuthController(), permanent: true);
     Get.put(UploadService(), permanent: true);
+    Get.put(DownloadService(), permanent: true);
     Get.put(ProfileController(), permanent: true);
   }
 }
@@ -62,6 +64,5 @@ class HomeBinding extends Bindings {
     Get.lazyPut(() => ChatRoomController(), fenix: true);
     Get.lazyPut(() => ChatController(), fenix: true);
     Get.lazyPut(() => UserContactController(), fenix: true);
-    Get.lazyPut(() => ProfileController(), fenix: true);
   }
 }

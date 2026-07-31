@@ -7,6 +7,7 @@ import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/chat_type.
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/date_separator.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/empty_chat_widget.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_overlay.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -252,7 +253,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         const Spacer(),
                         const Text(
-                          "Slide to cancel",
+                          "< Slide to cancel",
                           style: TextStyle(color: Colors.grey),
                         ),
                         const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.grey, size: 14),
@@ -323,6 +324,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           onLongPressEnd: (details) async {
                             if (isRecordingCancelled.value) {
                               await audioService.stopRecording();
+                              isRecordingCancelled.value = false;
                               isRecording.value = false;
                             } else {
                               await stopRecording();
@@ -398,6 +400,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   recordVideo();
                 },
               ),
+
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_rounded),
+                title: const Text("Document"),
+                onTap: () {
+                  Get.back();
+                  pickDocument();
+                  },
+              ),
+
 
               ListTile(
                 leading: const Icon(Icons.close),
@@ -575,6 +587,53 @@ class _ChatScreenState extends State<ChatScreen> {
       }());
     } catch (e) {
       Get.snackbar("Error", e.toString());
+    }
+  }
+
+  Future<void> pickDocument() async {
+    final result = await FilePicker.platform.pickFiles();
+
+    if (result == null) return;
+
+    final file = result.files.single;
+
+    if (file.path == null) return;
+
+    try {
+      // Optimistic sending
+      final String messageId = await chatController.sendFileMessage(
+        receiverId: widget.user.uid,
+        fileUrl: "",
+        fileName: file.name,
+        fileSize: file.size,
+        extension: file.extension ?? "",
+        localPath: file.path!,
+        status: MessageStatus.sending,
+      );
+
+      // Background upload
+      unawaited(() async {
+        try {
+          final response = await uploadService.uploadFile(file.path!);
+
+          await chatController.updateMessage(
+            widget.user.uid,
+            messageId,
+            {
+              "mediaUrl": response["fileUrl"],
+              "status": MessageStatus.sent.name,
+              "fileName": response["fileName"],
+              "fileSize": response["size"],
+              "extension": response["extension"],
+            },
+          );
+        } catch (e) {
+          if (kDebugMode) print("File upload error: $e");
+          // Optionally update message status to error
+        }
+      }());
+    } catch (e) {
+      Get.snackbar("Error", "Failed to send document: $e");
     }
   }
 

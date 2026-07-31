@@ -22,11 +22,17 @@ class MessageModel {
   @JsonKey(defaultValue: "")
   final String fileName;
 
+  @JsonKey(defaultValue: 0)
+  final int fileSize;
+
   @JsonKey(defaultValue: "")
   final String thumbnail;
 
   @JsonKey(defaultValue: 0)
   final int duration;
+
+  @JsonKey(defaultValue: "")
+  final String extension;
 
   @JsonKey(
     fromJson: _fromJson,
@@ -61,8 +67,10 @@ class MessageModel {
     this.deletedFor = const {},
     this.isEdited = false,
     required this.fileName,
+    this.fileSize = 0,
     required this.duration,
     required this.thumbnail,
+    required this.extension,
   });
 
   static DateTime? _fromJson(dynamic value) {
@@ -115,8 +123,11 @@ class MessageModel {
     Map<String, dynamic>? deletedFor,
     bool? isEdited,
     String? fileName,
+    int? fileSize,
     int? duration,
     String? thumbnail,
+    String? extension,
+
 
   }) {
     return MessageModel(
@@ -135,8 +146,10 @@ class MessageModel {
       deletedFor: deletedFor ?? this.deletedFor,
       isEdited: isEdited ?? this.isEdited,
       fileName: fileName ?? this.fileName ,
+      fileSize: fileSize ?? this.fileSize,
       duration: duration ?? this.duration,
       thumbnail: thumbnail ?? this.thumbnail,
+      extension: extension ?? this.extension,
     );
   }
 }

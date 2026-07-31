@@ -9,6 +9,9 @@ import '../../../../../widgets/media/audio_message_widget.dart';
 import '../../../../../widgets/message_type.dart';
 import '../../../mediaPreview/media_viewer_screen.dart';
 import '../../../mediaPreview/video_player_screen.dart';
+import '../../../../../widgets/media/file_message_widget.dart';
+import '../../../../../services/download_service.dart';
+import 'package:get/get.dart';
 
 class ChatType extends StatelessWidget {
   final String message;
@@ -223,54 +226,81 @@ class ChatType extends StatelessWidget {
                           ),
                         );
                       },
-                      child: enableHero 
-                      ? Hero(
-                        tag: heroTag,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
-                              ? Image.file(
-                                  File(messageModel!.localPath),
-                                  width: 250,
-                                  fit: BoxFit.cover,
-                                )
-                              : CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  width: 250,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(
-                                    width: 250,
-                                    height: 200,
-                                    alignment: Alignment.center,
-                                    child: const CircularProgressIndicator(),
-                                  ),
-                                  errorWidget: (_, __, ___) =>
-                                      const Icon(Icons.broken_image),
+                      child: Stack(
+                        children: [
+                          enableHero 
+                          ? Hero(
+                            tag: heroTag,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                                  ? Image.file(
+                                      File(messageModel!.localPath),
+                                      width: 250,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      width: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(
+                                        width: 250,
+                                        height: 200,
+                                        alignment: Alignment.center,
+                                        child: const CircularProgressIndicator(),
+                                      ),
+                                      errorWidget: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                            ),
+                          )
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                                  ? Image.file(
+                                      File(messageModel!.localPath),
+                                      width: 250,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      width: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(
+                                        width: 250,
+                                        height: 200,
+                                        alignment: Alignment.center,
+                                        child: const CircularProgressIndicator(),
+                                      ),
+                                      errorWidget: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                            ),
+                          if (isComing)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Colors.black38,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.download, color: Colors.white, size: 20),
+                                  onPressed: () {
+                                    final downloadService = Get.find<DownloadService>();
+                                    downloadService.downloadFile(
+                                      url: imageUrl,
+                                      fileName: messageModel?.fileName.isNotEmpty == true 
+                                          ? messageModel!.fileName 
+                                          : "IMG_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                                      isMedia: true,
+                                    );
+                                  },
                                 ),
-                        ),
-                      )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
-                              ? Image.file(
-                                  File(messageModel!.localPath),
-                                  width: 250,
-                                  fit: BoxFit.cover,
-                                )
-                              : CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  width: 250,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(
-                                    width: 250,
-                                    height: 200,
-                                    alignment: Alignment.center,
-                                    child: const CircularProgressIndicator(),
-                                  ),
-                                  errorWidget: (_, __, ___) =>
-                                      const Icon(Icons.broken_image),
-                                ),
-                        ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     if (message.isNotEmpty)
                       Padding(
@@ -365,6 +395,29 @@ class ChatType extends StatelessWidget {
                               ],
                             ),
                           ),
+                          if (isComing)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Colors.black38,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.download, color: Colors.white, size: 20),
+                                  onPressed: () {
+                                    final downloadService = Get.find<DownloadService>();
+                                    downloadService.downloadFile(
+                                      url: imageUrl,
+                                      fileName: messageModel?.fileName.isNotEmpty == true 
+                                          ? messageModel!.fileName 
+                                          : "VID_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                                      isMedia: true,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -383,6 +436,14 @@ class ChatType extends StatelessWidget {
                       audioUrl: imageUrl,
                       localPath: messageModel?.localPath,
                       initialDurationMs: messageModel?.duration,
+                    ),
+                  ] else if (type == MessageType.file) ...[
+                    FileMessageWidget(
+                      fileName: messageModel?.fileName ?? "Unknown",
+                      fileSize: messageModel?.fileSize.toString() ?? "0",
+                      fileUrl: imageUrl,
+                      localPath: messageModel?.localPath ?? "",
+                      isComing: isComing,
                     ),
                   ] else if (message.isNotEmpty)
                     Row(

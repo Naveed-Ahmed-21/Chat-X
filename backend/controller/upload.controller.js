@@ -132,9 +132,53 @@ const uploadAudio = async (req, res) => {
   }
 };
 
+const path = require("path");
+
+const uploadFile = async (req, res) => {
+  try {
+    console.log("FILE API HIT");
+
+    if (!req.file) {
+      console.log("No file in request");
+      return res.status(400).json({
+        success: false,
+        message: "No file selected",
+      });
+    }
+
+    const uid = req.body.uid || "anonymous";
+    console.log("UID from body:", uid);
+    console.log("File path:", req.file.path);
+
+    // Using resource_type: "auto" is often safer as Cloudinary will detect it
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "ChatX/Files",
+      resource_type: "auto",
+    });
+
+    console.log("Cloudinary upload successful:", result.secure_url);
+
+    return res.json({
+      success: true,
+      fileUrl: result.secure_url,
+      fileName: req.file.originalname,
+      size: req.file.size,
+      extension: path.extname(req.file.originalname),
+    });
+
+  } catch (e) {
+    console.error("FILE UPLOAD ERROR:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during file upload: " + e.message,
+    });
+  }
+};
+
 module.exports = {
   uploadImage,
   uploadChatImage,
   uploadVideo,
   uploadAudio,
+  uploadFile
 };

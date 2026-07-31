@@ -130,6 +130,40 @@ class UploadService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadFile(String path) async {
+    try {
+      final formData = FormData.fromMap({
+        "file": await MultipartFile.fromFile(path),
+        "uid": FirebaseAuth.instance.currentUser!.uid,
+      });
+
+      final response = await dio.post(
+        "${ApiConstants.baseUrl}/api/upload/file",
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          "fileUrl": response.data["fileUrl"],
+          "fileName": response.data["fileName"],
+          "size": response.data["size"],
+          "extension": response.data["extension"],
+        };
+      }
+
+      throw Exception("Upload failed");
+    } on DioException catch (e) {
+      print("FILE UPLOAD DIO ERROR: ${e.response?.data}");
+      print("FILE UPLOAD MESSAGE: ${e.message}");
+      throw Exception(
+        e.response?.data["message"] ?? "Unable to upload file",
+      );
+    } catch (e) {
+      print("FILE UPLOAD ERROR: $e");
+      throw Exception("An unexpected error occurred: $e");
+    }
+  }
+
 }
 
 class ApiConstants {
