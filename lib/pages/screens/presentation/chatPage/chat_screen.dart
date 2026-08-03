@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:get/get_navigation/src/root/parse_route.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:get/route_manager.dart';
@@ -21,6 +22,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:swipe_to/swipe_to.dart';
 import '../../../../controller/chat_controller.dart';
+import '../../../../controller/user_contact_controller.dart';
+import '../../../../model/chat_room_model.dart';
 import '../../../../model/message_model.dart';
 import '../../../../services/audio_record_service.dart';
 import '../../../../services/upload_service.dart';
@@ -29,10 +32,13 @@ import '../../../../utils/date_time_formatter.dart';
 import '../../../../widgets/message_status.dart';
 import '../../../../widgets/message_type.dart';
 import '../../mediaPreview/media_preview_screen.dart';
+import 'package:chatx_app/pages/group/group_info_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
-  final UserModel user;
-  const ChatScreen({super.key, required this.user});
+  final UserModel? user;
+  final ChatRoomModel? chatRoom;
+  const ChatScreen({super.key, this.user, this.chatRoom});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -41,6 +47,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final ChatRoomController chatRoomController = Get.find<ChatRoomController>();
   final ChatController chatController = Get.find();
+  final UserContactController userController = Get.find();
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
@@ -51,7 +58,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final AudioRecordService audioService = AudioRecordService();
   final FocusNode messageFocus = FocusNode();
 
-  late final roomId = chatRoomController.getRoomId(widget.user.uid);
+  late final String roomId;
+  late final String receiverId;
   late final Stream<List<MessageModel>> messageStream;
   final RxString selectedMessageId = "".obs;
 
@@ -69,6 +77,14 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+
+    if (widget.chatRoom != null) {
+      roomId = widget.chatRoom!.id;
+      receiverId = widget.chatRoom!.id;
+    } else {
+      receiverId = widget.user!.uid;
+      roomId = chatRoomController.getRoomId(receiverId);
+    }
 
     messageStream = chatController.getMessages(roomId);
 
@@ -98,6 +114,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void showDeleteConfirmation(MessageModel message, bool isComing) {
+    final bool isAdmin = widget.chatRoom?.admins.contains(FirebaseAuth.instance.currentUser?.uid) ?? false;
+
     Get.dialog(
       AlertDialog(
         title: const Text("Delete message?"),
@@ -115,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text("Delete for me"),
           ),
 
-          if (!isComing)
+          if (!isComing || (widget.chatRoom?.isGroup == true && isAdmin))
             TextButton(
               onPressed: () async {
                 Get.back();
@@ -250,11 +268,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         const Text(
                           "Recording...",
                           style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const Spacer(),
-                        const Text(
-                          "< Slide to cancel",
-                          style: TextStyle(color: Colors.grey),
+                        const Flexible(
+                          child: Text(
+                            "< Slide to cancel",
+                            style: TextStyle(color: Colors.grey),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.grey, size: 14),
                         const SizedBox(width: 10),
@@ -294,8 +316,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           messageController.clear();
 
                           await chatController.sendTextMessage(
-                            receiverId: widget.user.uid,
+                            receiverId: receiverId,
                             text: text,
+                            roomId: roomId,
+                            isGroup: widget.chatRoom?.isGroup ?? false,
                           );
                         },
                         icon: Icon(
@@ -444,10 +468,12 @@ class _ChatScreenState extends State<ChatScreen> {
           : "";
 
       await chatController.sendVideoMessage(
-        receiverId: widget.user.uid,
+        receiverId: receiverId,
         videoUrl: result["videoUrl"],
         duration: result["duration"],
         thumbnail: thumbnailUrl,
+        roomId: roomId,
+        isGroup: widget.chatRoom != null,
       );
 
       if (Get.isDialogOpen ?? false) {
@@ -486,10 +512,12 @@ class _ChatScreenState extends State<ChatScreen> {
           : "";
 
       await chatController.sendVideoMessage(
-        receiverId: widget.user.uid,
+        receiverId: receiverId,
         videoUrl: result["videoUrl"],
         duration: result["duration"],
         thumbnail: thumbnailUrl,
+        roomId: roomId,
+        isGroup: widget.chatRoom != null,
       );
 
       if (Get.isDialogOpen ?? false) {
@@ -511,7 +539,12 @@ class _ChatScreenState extends State<ChatScreen> {
       if (files.isEmpty) return;
 
       Get.to(
-        () => MediaPreviewScreen(files: files, receiverId: widget.user.uid),
+        () => MediaPreviewScreen(
+          files: files,
+          receiverId: receiverId,
+          roomId: roomId,
+          isGroup: widget.chatRoom != null,
+        ),
       );
     } catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
@@ -531,8 +564,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final imageUrl = await uploadService.uploadChatImage(file.path);
 
     await chatController.sendImageMessage(
-      receiverId: widget.user.uid,
+      receiverId: receiverId,
       imageUrl: imageUrl,
+      roomId: roomId,
+      isGroup: widget.chatRoom != null,
     );
   }
 
@@ -561,11 +596,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Optimistic sending
       final String messageId = await chatController.sendAudioMessage(
-        receiverId: widget.user.uid,
+        receiverId: receiverId,
         audioUrl: "",
         localPath: path,
         duration: duration,
         status: MessageStatus.sending,
+        roomId: roomId,
+        isGroup: widget.chatRoom != null,
       );
 
       // Background upload
@@ -574,12 +611,13 @@ class _ChatScreenState extends State<ChatScreen> {
           final audioUrl = await uploadService.uploadAudio(path);
 
           await chatController.updateMessage(
-            widget.user.uid,
+            receiverId,
             messageId,
             {
               "mediaUrl": audioUrl,
               "status": MessageStatus.sent.name,
             },
+            roomId: roomId,
           );
         } catch (e) {
           if (kDebugMode) print("Audio upload error: $e");
@@ -602,13 +640,15 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       // Optimistic sending
       final String messageId = await chatController.sendFileMessage(
-        receiverId: widget.user.uid,
+        receiverId: receiverId,
         fileUrl: "",
         fileName: file.name,
         fileSize: file.size,
         extension: file.extension ?? "",
         localPath: file.path!,
         status: MessageStatus.sending,
+        roomId: roomId,
+        isGroup: widget.chatRoom != null,
       );
 
       // Background upload
@@ -617,7 +657,7 @@ class _ChatScreenState extends State<ChatScreen> {
           final response = await uploadService.uploadFile(file.path!);
 
           await chatController.updateMessage(
-            widget.user.uid,
+            receiverId,
             messageId,
             {
               "mediaUrl": response["fileUrl"],
@@ -626,6 +666,7 @@ class _ChatScreenState extends State<ChatScreen> {
               "fileSize": response["size"],
               "extension": response["extension"],
             },
+            roomId: roomId,
           );
         } catch (e) {
           if (kDebugMode) print("File upload error: $e");
@@ -653,18 +694,30 @@ class _ChatScreenState extends State<ChatScreen> {
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           onTap: () {
-            Get.toNamed('/userProfileScreen', arguments: widget.user);
+            if (widget.chatRoom?.isGroup == true) {
+              Get.to(() => GroupInfoScreen(chatRoom: widget.chatRoom!));
+            } else {
+              Get.toNamed('/userProfileScreen', arguments: widget.user);
+            }
           },
           child: Row(
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundImage: widget.user.profilePic.isNotEmpty
-                    ? NetworkImage(widget.user.profilePic)
-                    : null,
-                child: widget.user.profilePic.isEmpty
-                    ? Image.asset(AppImages.male)
-                    : const Icon(Icons.person),
+                backgroundImage: (widget.chatRoom?.isGroup == true)
+                    ? (widget.chatRoom!.groupImage.isNotEmpty
+                        ? CachedNetworkImageProvider(widget.chatRoom!.groupImage)
+                        : null)
+                    : (widget.user!.profilePic.isNotEmpty
+                        ? CachedNetworkImageProvider(widget.user!.profilePic)
+                        : null),
+                child: (widget.chatRoom?.isGroup == true)
+                    ? (widget.chatRoom!.groupImage.isEmpty
+                        ? Image.asset(AppImages.appLogo)
+                        : null)
+                    : (widget.user!.profilePic.isEmpty
+                        ? Image.asset(AppImages.male)
+                        : null),
               ),
 
               const SizedBox(width: 10),
@@ -673,11 +726,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.user.name,
+                    widget.chatRoom?.isGroup == true
+                        ? widget.chatRoom!.groupName
+                        : widget.user!.name,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    widget.user.status,
+                    widget.chatRoom?.isGroup == true
+                        ? "${widget.chatRoom!.participants.length} members"
+                        : widget.user!.status,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -764,10 +821,15 @@ class _ChatScreenState extends State<ChatScreen> {
                       await Future.delayed(const Duration(milliseconds: 500));
 
                       // Now mark them as seen
-                      chatController.markMessagesAsSeen(
-                        roomId,
-                        widget.user.uid,
-                      );
+                      if (widget.user != null) {
+                        chatController.markMessagesAsSeen(
+                          roomId,
+                          widget.user!.uid,
+                        );
+                      } else if (widget.chatRoom != null) {
+                         // Optional: mark group messages as seen if needed
+                         // chatController.markGroupMessagesAsSeen(roomId);
+                      }
                     });
                   }
 
@@ -808,9 +870,18 @@ class _ChatScreenState extends State<ChatScreen> {
                       final repliedSenderName = repliedMessage == null
                           ? ""
                           : repliedMessage.senderId ==
-                                FirebaseAuth.instance.currentUser!.uid
-                          ? "You"
-                          : widget.user.name;
+                                  FirebaseAuth.instance.currentUser!.uid
+                              ? "You"
+                              : widget.chatRoom?.isGroup == true
+                                  ? (userController.userList
+                                          .firstWhereOrNull(
+                                            (u) =>
+                                                u.uid ==
+                                                repliedMessage!.senderId,
+                                          )
+                                          ?.name ??
+                                      "Unknown")
+                                  : widget.user!.name;
 
                       bool showDate = false;
                       if (index == 0) {
@@ -966,6 +1037,22 @@ class _ChatScreenState extends State<ChatScreen> {
                                     status: message.status,
                                     isEdited: message.isEdited,
                                     reactions: message.reactions,
+                                    senderName: widget.chatRoom?.isGroup == true
+                                        ? (isComing 
+                                            ? (userController.userList
+                                                .firstWhereOrNull((u) => u.uid == message.senderId)
+                                                ?.name ?? "Unknown")
+                                            : "you")
+                                        : "",
+                                    onSenderTap: widget.chatRoom?.isGroup == true && isComing
+                                        ? () {
+                                            final user = userController.userList
+                                                .firstWhereOrNull((u) => u.uid == message.senderId);
+                                            if (user != null) {
+                                              Get.toNamed('/userProfileScreen', arguments: user);
+                                            }
+                                          }
+                                        : null,
                                   ),
                                 ),
                               );

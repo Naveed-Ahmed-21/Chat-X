@@ -16,12 +16,24 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late ProfileController profileController;
+  final TextEditingController searchController = TextEditingController();
+  final RxBool isSearch = false.obs;
+  final RxString searchQuery = "".obs;
 
   @override
   void initState() {
     super.initState();
     profileController = Get.find<ProfileController>();
     Get.find<ChatController>().markMessagesAsDelivered();
+    searchController.addListener(() {
+      searchQuery.value = searchController.text;
+    });
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -30,18 +42,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        leading: Image.asset(AppImages.appLogo),
-        title: Text("Chat X", style: Theme.of(context).textTheme.headlineSmall),
-
+        leading: Obx(() => isSearch.value
+            ? IconButton(
+                onPressed: () {
+                  isSearch.value = false;
+                  searchController.clear();
+                },
+                icon: const Icon(Icons.arrow_back),
+              )
+            : Image.asset(AppImages.appLogo)),
+        title: Obx(() => isSearch.value
+            ? TextField(
+                controller: searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: "Search chats...",
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) {
+                  // Trigger rebuild or update search query in controller
+                },
+              )
+            : Text("Chat X", style: Theme.of(context).textTheme.headlineSmall)),
         actions: [
-          IconButton(onPressed: () {}, icon: Icon(Icons.search)),
+          Obx(() => isSearch.value
+              ? const SizedBox.shrink()
+              : IconButton(
+                  onPressed: () {
+                    isSearch.value = true;
+                  },
+                  icon: const Icon(Icons.search))),
           IconButton(
             onPressed: () async {
               final controller = Get.find<ProfileController>();
               await controller.getUserDetails();
               Get.toNamed('/profileScreen');
             },
-            icon: Icon(Icons.more_vert),
+            icon: const Icon(Icons.more_vert),
           ),
         ],
         bottom: myTabBar(tabController, context),
@@ -51,18 +88,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         onPressed: () {
           Get.toNamed("/contactScreen");
         },
-        child: Icon(Icons.message, color: Colors.white),
+        child: const Icon(Icons.message, color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(10.0),
         child: TabBarView(
           controller: tabController,
           children: [
-            ChatRoomList(),
-
-            ListView(children: [ListTile(title: Text("Naveed"))]),
-
-            ListView(children: [ListTile(title: Text("Ahmed"))]),
+            Obx(() => ChatRoomList(
+                  searchQuery: searchQuery.value,
+                  onlyGroups: false,
+                )),
+            Obx(() => ChatRoomList(
+                  searchQuery: searchQuery.value,
+                  onlyGroups: true,
+                )),
+            ListView(children: const [ListTile(title: Text("Naveed"))]),
           ],
         ),
       ),

@@ -18,11 +18,15 @@ import 'selected_media.dart';
 class MediaPreviewScreen extends StatefulWidget {
   final List<XFile> files;
   final String receiverId;
+  final String? roomId;
+  final bool isGroup;
 
   const MediaPreviewScreen({
     super.key,
     required this.files,
     required this.receiverId,
+    this.roomId,
+    this.isGroup = false,
   });
 
   @override
@@ -79,6 +83,8 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
           localPath: path,
           status: MessageStatus.sending,
           caption: caption,
+          roomId: widget.roomId,
+          isGroup: widget.isGroup,
         );
 
         // Background upload
@@ -93,6 +99,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                 "mediaUrl": imageUrl,
                 "status": MessageStatus.sent.name,
               },
+              roomId: widget.roomId,
             );
           } catch (e) {
             if (kDebugMode) print("Image upload error: $e");

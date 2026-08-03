@@ -89,22 +89,18 @@ class ChatTile extends StatelessWidget {
 
                       const SizedBox(height: 5),
 
-                     Text(
+                      Text(
                         lastMessage,
                         maxLines: 1,
                         style: Theme.of(context).textTheme.bodyMedium,
-                      )
-
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-              lastTime,
-              style: Theme.of(context).textTheme.bodyMedium
-          ),
+          Text(lastTime, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );

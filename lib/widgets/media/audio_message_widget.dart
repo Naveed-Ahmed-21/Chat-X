@@ -8,12 +8,16 @@ class AudioMessageWidget extends StatefulWidget {
   final String audioUrl;
   final String? localPath;
   final int? initialDurationMs;
+  final bool isComing;
+  final VoidCallback? onDownload;
 
   const AudioMessageWidget({
     super.key,
     required this.audioUrl,
     this.localPath,
     this.initialDurationMs,
+    this.isComing = false,
+    this.onDownload,
   });
 
   @override
@@ -27,6 +31,7 @@ class _AudioMessageWidgetState
   final AudioPlayer player = AudioPlayer();
 
   bool initialized = false;
+  bool isPreloading = false;
   bool playing = false;
 
   Duration duration = Duration.zero;
@@ -49,6 +54,9 @@ class _AudioMessageWidgetState
     if (widget.initialDurationMs != null) {
       duration = Duration(milliseconds: widget.initialDurationMs!);
     }
+
+    // Pre-initialize player to avoid lag on first tap
+    _preInitialize();
 
     player.durationStream.listen((d) {
       if (d != null) {
@@ -79,17 +87,49 @@ class _AudioMessageWidgetState
     });
   }
 
+  Future<void> _preInitialize() async {
+    final bool isLocal = widget.localPath != null && widget.localPath!.isNotEmpty && File(widget.localPath!).existsSync();
+    if (isLocal || widget.audioUrl.isNotEmpty) {
+      setState(() => isPreloading = true);
+      try {
+        if (isLocal) {
+          await player.setFilePath(widget.localPath!, preload: true);
+        } else {
+          await player.setUrl(widget.audioUrl, preload: true);
+        }
+        initialized = true;
+      } catch (e) {
+        debugPrint("Audio pre-init error: $e");
+      } finally {
+        if (mounted) setState(() => isPreloading = false);
+      }
+    }
+  }
+
   Future<void> playPause() async {
+    final bool isLocal = widget.localPath != null && widget.localPath!.isNotEmpty && File(widget.localPath!).existsSync();
+    
+    if (widget.isComing && !isLocal) {
+      widget.onDownload?.call();
+      return;
+    }
+
+    if (isPreloading) return; // Wait for preloading to finish
 
     if (!initialized) {
-      if (widget.localPath != null && widget.localPath!.isNotEmpty && File(widget.localPath!).existsSync()) {
-        await player.setFilePath(widget.localPath!);
-      } else if (widget.audioUrl.isNotEmpty) {
-        await player.setUrl(widget.audioUrl);
-      } else {
-        return;
+      setState(() => isPreloading = true);
+      try {
+        if (isLocal) {
+          await player.setFilePath(widget.localPath!);
+        } else if (widget.audioUrl.isNotEmpty) {
+          await player.setUrl(widget.audioUrl);
+        } else {
+          return;
+        }
+        initialized = true;
+      } finally {
+        if (mounted) setState(() => isPreloading = false);
       }
-      initialized = true;
     }
 
     if (playing) {
@@ -120,6 +160,8 @@ class _AudioMessageWidgetState
 
   @override
   Widget build(BuildContext context) {
+    final bool isLocal = widget.localPath != null && widget.localPath!.isNotEmpty && File(widget.localPath!).existsSync();
+    final bool showDownload = widget.isComing && !isLocal;
 
     return Container(
       width: 260,
@@ -136,13 +178,19 @@ class _AudioMessageWidgetState
             child: CircleAvatar(
               radius: 18,
               backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Icon(
-                playing
-                    ? Icons.pause
-                    : Icons.play_arrow,
-                color: Colors.white,
-                size: 20,
-              ),
+              child: isPreloading 
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(
+                      showDownload 
+                          ? Icons.download
+                          : (playing ? Icons.pause : Icons.play_arrow),
+                      color: Colors.white,
+                      size: 20,
+                    ),
             ),
           ),
 
@@ -153,10 +201,9 @@ class _AudioMessageWidgetState
               children: [
                 GestureDetector(
                   onHorizontalDragUpdate: (details) {
+                    if (showDownload) return;
                     final box = context.findRenderObject() as RenderBox;
                     final localPos = box.globalToLocal(details.globalPosition);
-                    // Adjust for leading elements (circle avatar + spacing = 18*2 + 12 = 48)
-                    // Container padding = 10
                     final relativeX = (localPos.dx - 58).clamp(0, 140); 
                     final percent = relativeX / 140;
                     if (duration.inMilliseconds > 0) {
@@ -227,6 +274,7 @@ class _AudioMessageWidgetState
 
           PopupMenuButton<double>(
             initialValue: speed,
+            enabled: !showDownload,
             onSelected: (v) async {
               speed = v;
               await player.setSpeed(v);
@@ -251,9 +299,10 @@ class _AudioMessageWidgetState
               padding: const EdgeInsets.only(left: 8),
               child: Text(
                 "${speed.toStringAsFixed(1)}x",
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
+                  color: showDownload ? Colors.grey : null,
                 ),
               ),
             ),

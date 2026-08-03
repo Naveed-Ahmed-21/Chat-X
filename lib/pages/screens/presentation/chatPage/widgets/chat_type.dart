@@ -4,6 +4,7 @@ import 'package:chatx_app/model/message_model.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_status_icon.dart';
 import 'package:chatx_app/widgets/message_status.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../../../../widgets/media/audio_message_widget.dart';
 import '../../../../../widgets/message_type.dart';
@@ -11,9 +12,8 @@ import '../../../mediaPreview/media_viewer_screen.dart';
 import '../../../mediaPreview/video_player_screen.dart';
 import '../../../../../widgets/media/file_message_widget.dart';
 import '../../../../../services/download_service.dart';
-import 'package:get/get.dart';
 
-class ChatType extends StatelessWidget {
+class ChatType extends StatefulWidget {
   final String message;
   final String imageUrl;
   final String thumbnail;
@@ -31,6 +31,8 @@ class ChatType extends StatelessWidget {
   final MessageType type;
   final MessageModel? messageModel;
   final bool enableHero;
+  final String senderName;
+  final VoidCallback? onSenderTap;
 
   const ChatType({
     super.key,
@@ -51,14 +53,87 @@ class ChatType extends StatelessWidget {
     required this.currentImageIndex,
     this.messageModel,
     this.enableHero = true,
+    this.senderName = "",
+    this.onSenderTap,
   });
+
+  @override
+  State<ChatType> createState() => _ChatTypeState();
+}
+
+class _ChatTypeState extends State<ChatType> {
+  String? downloadedPath;
+  bool isChecking = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDownload();
+  }
+
+  Future<void> _checkDownload() async {
+    if (widget.messageModel == null) return;
+    
+    final downloadService = Get.find<DownloadService>();
+    String fileName = "";
+    
+    if (widget.messageModel!.fileName.isNotEmpty) {
+      fileName = widget.messageModel!.fileName;
+    } else {
+       // Fallback filename generation
+       if (widget.type == MessageType.image) {
+         fileName = "IMG_${widget.messageModel!.id}.jpg";
+       } else if (widget.type == MessageType.video) {
+         fileName = "VID_${widget.messageModel!.id}.mp4";
+       } else if (widget.type == MessageType.audio) {
+         fileName = "AUD_${widget.messageModel!.id}.mp3";
+       }
+    }
+
+    if (fileName.isNotEmpty) {
+      downloadedPath = await downloadService.getFilePath(fileName);
+    }
+
+    if (mounted) {
+      setState(() {
+        isChecking = false;
+      });
+    }
+  }
+
+  Future<void> _startDownload() async {
+    final downloadService = Get.find<DownloadService>();
+    String fileName = widget.messageModel?.fileName ?? "";
+    
+    if (fileName.isEmpty) {
+       if (widget.type == MessageType.image) {
+         fileName = "IMG_${widget.messageModel!.id}.jpg";
+       } else if (widget.type == MessageType.video) {
+         fileName = "VID_${widget.messageModel!.id}.mp4";
+       } else if (widget.type == MessageType.audio) {
+         fileName = "AUD_${widget.messageModel!.id}.mp3";
+       }
+    }
+
+    final path = await downloadService.downloadFile(
+      url: widget.imageUrl,
+      fileName: fileName,
+      isMedia: true,
+    );
+
+    if (path != null && mounted) {
+      setState(() {
+        downloadedPath = path;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     Widget buildReactionBubble(BuildContext context) {
       final grouped = <String, int>{};
 
-      for (final emoji in reactions.values) {
+      for (final emoji in widget.reactions.values) {
         grouped[emoji] = (grouped[emoji] ?? 0) + 1;
       }
 
@@ -106,7 +181,7 @@ class ChatType extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 2),
       child: Column(
-        crossAxisAlignment: isComing
+        crossAxisAlignment: widget.isComing
             ? CrossAxisAlignment.start
             : CrossAxisAlignment.end,
         children: [
@@ -115,16 +190,16 @@ class ChatType extends StatelessWidget {
             transform: Matrix4.identity(),
 
             child: Container(
-              padding: imageUrl.isNotEmpty
+              padding: widget.imageUrl.isNotEmpty
                   ? const EdgeInsets.all(4)
                   : const EdgeInsets.all(10),
               constraints: BoxConstraints(
-                maxWidth: (type == MessageType.image || type == MessageType.video)
+                maxWidth: (widget.type == MessageType.image || widget.type == MessageType.video)
                     ? 250 + 8.0 // image width + padding
                     : MediaQuery.sizeOf(context).width / 1.3,
               ),
               decoration: BoxDecoration(
-                borderRadius: isComing
+                borderRadius: widget.isComing
                     ? BorderRadius.only(
                         topLeft: Radius.circular(10),
                         topRight: Radius.circular(10),
@@ -140,15 +215,51 @@ class ChatType extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primaryContainer,
               ),
               child: Column(
-                crossAxisAlignment: isComing
+                crossAxisAlignment: widget.isComing
                     ? CrossAxisAlignment.start
                     : CrossAxisAlignment.end,
                 children: [
-                  if (repliedMessage != null)
+                  if (widget.messageModel != null && widget.messageModel!.status == MessageStatus.sending)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "Uploading...",
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (widget.senderName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 5, left: 5),
+                      child: InkWell(
+                        onTap: widget.onSenderTap,
+                        child: Text(
+                          widget.isComing 
+                              ? "@${widget.senderName.toLowerCase().replaceAll(' ', '')}"
+                              : "@you",
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.repliedMessage != null)
                     Container(
                       width: double.infinity,
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: imageUrl.isNotEmpty
+                      padding: widget.imageUrl.isNotEmpty
                           ? const EdgeInsets.all(4)
                           : const EdgeInsets.all(10),
                       decoration: BoxDecoration(
@@ -165,7 +276,7 @@ class ChatType extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            repliedSenderName,
+                            widget.repliedSenderName,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.bold,
@@ -176,7 +287,7 @@ class ChatType extends StatelessWidget {
                           const SizedBox(height: 2),
 
                           Text(
-                            repliedMessage!.message,
+                            widget.repliedMessage!.message,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -184,7 +295,7 @@ class ChatType extends StatelessWidget {
                       ),
                     ),
 
-                  if (isDeleted)
+                  if (widget.isDeleted)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -199,21 +310,26 @@ class ChatType extends StatelessWidget {
                         ),
                       ],
                     )
-                  else if (type == MessageType.image &&
-                      imageUrl.isNotEmpty) ...[
+                  else if (widget.type == MessageType.image &&
+                      widget.imageUrl.isNotEmpty) ...[
                     GestureDetector(
                       onTap: () {
+                        if (widget.isComing && downloadedPath == null) {
+                          _startDownload();
+                          return;
+                        }
+
                         final bool hasValidImageIndex =
-                            currentImageIndex >= 0 &&
-                            currentImageIndex < imageMessages.length;
+                            widget.currentImageIndex >= 0 &&
+                            widget.currentImageIndex < widget.imageMessages.length;
                         if (!hasValidImageIndex) return;
 
-                        final activeImageMessages = imageMessages
+                        final activeImageMessages = widget.imageMessages
                             .where((m) => !m.isDeleted)
                             .toList();
 
                         final newIndex = activeImageMessages.indexOf(
-                          imageMessages[currentImageIndex],
+                          widget.imageMessages[widget.currentImageIndex],
                         );
 
                         Navigator.push(
@@ -228,55 +344,55 @@ class ChatType extends StatelessWidget {
                       },
                       child: Stack(
                         children: [
-                          enableHero 
+                          widget.enableHero 
                           ? Hero(
-                            tag: heroTag,
+                            tag: widget.heroTag,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                              child: (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
                                   ? Image.file(
-                                      File(messageModel!.localPath),
+                                      File(widget.messageModel!.localPath),
                                       width: 250,
                                       fit: BoxFit.cover,
                                     )
                                   : CachedNetworkImage(
-                                      imageUrl: imageUrl,
+                                      imageUrl: widget.imageUrl,
                                       width: 250,
                                       fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(
+                                      placeholder: (_, _) => Container(
                                         width: 250,
                                         height: 200,
                                         alignment: Alignment.center,
                                         child: const CircularProgressIndicator(),
                                       ),
-                                      errorWidget: (_, __, ___) =>
+                                      errorWidget: (_, _, _) =>
                                           const Icon(Icons.broken_image),
                                     ),
                             ),
                           )
                           : ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                              child: (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
                                   ? Image.file(
-                                      File(messageModel!.localPath),
+                                      File(widget.messageModel!.localPath),
                                       width: 250,
                                       fit: BoxFit.cover,
                                     )
                                   : CachedNetworkImage(
-                                      imageUrl: imageUrl,
+                                      imageUrl: widget.imageUrl,
                                       width: 250,
                                       fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(
+                                      placeholder: (_, _) => Container(
                                         width: 250,
                                         height: 200,
                                         alignment: Alignment.center,
                                         child: const CircularProgressIndicator(),
                                       ),
-                                      errorWidget: (_, __, ___) =>
+                                      errorWidget: (_, _, _) =>
                                           const Icon(Icons.broken_image),
                                     ),
                             ),
-                          if (isComing)
+                          if (widget.isComing && downloadedPath == null && !isChecking)
                             Positioned(
                               top: 8,
                               right: 8,
@@ -286,23 +402,14 @@ class ChatType extends StatelessWidget {
                                 child: IconButton(
                                   padding: EdgeInsets.zero,
                                   icon: const Icon(Icons.download, color: Colors.white, size: 20),
-                                  onPressed: () {
-                                    final downloadService = Get.find<DownloadService>();
-                                    downloadService.downloadFile(
-                                      url: imageUrl,
-                                      fileName: messageModel?.fileName.isNotEmpty == true 
-                                          ? messageModel!.fileName 
-                                          : "IMG_${DateTime.now().millisecondsSinceEpoch}.jpg",
-                                      isMedia: true,
-                                    );
-                                  },
+                                  onPressed: _startDownload,
                                 ),
                               ),
                             ),
                         ],
                       ),
                     ),
-                    if (message.isNotEmpty)
+                    if (widget.message.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(
                           top: 8,
@@ -313,13 +420,13 @@ class ChatType extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            message,
+                            widget.message,
                             style: const TextStyle(fontSize: 15),
                           ),
                         ),
                       ),
 
-                    if (isEdited && message.isNotEmpty)
+                    if (widget.isEdited && widget.message.isNotEmpty)
                       const Padding(
                         padding: EdgeInsets.only(left: 6, bottom: 4),
                         child: Align(
@@ -330,15 +437,20 @@ class ChatType extends StatelessWidget {
                           ),
                         ),
                       ),
-                  ] else if (type == MessageType.video &&
-                      imageUrl.isNotEmpty) ...[
+                  ] else if (widget.type == MessageType.video &&
+                      widget.imageUrl.isNotEmpty) ...[
                     GestureDetector(
                       onTap: () {
+                        if (widget.isComing && downloadedPath == null) {
+                          _startDownload();
+                          return;
+                        }
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) =>
-                                VideoPlayerScreen(videoUrl: imageUrl),
+                                VideoPlayerScreen(videoUrl: downloadedPath ?? widget.imageUrl),
                           ),
                         );
                       },
@@ -350,22 +462,22 @@ class ChatType extends StatelessWidget {
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                (messageModel != null && messageModel!.localPath.isNotEmpty && File(messageModel!.localPath).existsSync())
+                                (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
                                     ? Image.file(
-                                        File(messageModel!.localPath),
+                                        File(widget.messageModel!.localPath),
                                         width: 250,
                                         height: 180,
                                         fit: BoxFit.cover,
                                       )
-                                    : (thumbnail.isNotEmpty || (imageUrl.contains("cloudinary") && imageUrl.contains("/video/upload/")))
+                                    : (widget.thumbnail.isNotEmpty || (widget.imageUrl.contains("cloudinary") && widget.imageUrl.contains("/video/upload/")))
                                         ? CachedNetworkImage(
-                                            imageUrl: thumbnail.isNotEmpty 
-                                              ? thumbnail 
-                                              : imageUrl.replaceAll(RegExp(r'\.[^.]+$'), '.jpg'),
+                                            imageUrl: widget.thumbnail.isNotEmpty 
+                                              ? widget.thumbnail 
+                                              : widget.imageUrl.replaceAll(RegExp(r'\.[^.]+$'), '.jpg'),
                                             width: 250,
                                             height: 180,
                                             fit: BoxFit.cover,
-                                            placeholder: (_, __) => Container(
+                                            placeholder: (_, _) => Container(
                                               width: 250,
                                               height: 180,
                                               color: Colors.black26,
@@ -373,7 +485,7 @@ class ChatType extends StatelessWidget {
                                                 child: CircularProgressIndicator(),
                                               ),
                                             ),
-                                            errorWidget: (_, __, ___) => Container(
+                                            errorWidget: (_, _, _) => Container(
                                               width: 250,
                                               height: 180,
                                               color: Colors.black,
@@ -395,7 +507,7 @@ class ChatType extends StatelessWidget {
                               ],
                             ),
                           ),
-                          if (isComing)
+                          if (widget.isComing && downloadedPath == null && !isChecking)
                             Positioned(
                               top: 8,
                               right: 8,
@@ -405,16 +517,7 @@ class ChatType extends StatelessWidget {
                                 child: IconButton(
                                   padding: EdgeInsets.zero,
                                   icon: const Icon(Icons.download, color: Colors.white, size: 20),
-                                  onPressed: () {
-                                    final downloadService = Get.find<DownloadService>();
-                                    downloadService.downloadFile(
-                                      url: imageUrl,
-                                      fileName: messageModel?.fileName.isNotEmpty == true 
-                                          ? messageModel!.fileName 
-                                          : "VID_${DateTime.now().millisecondsSinceEpoch}.mp4",
-                                      isMedia: true,
-                                    );
-                                  },
+                                  onPressed: _startDownload,
                                 ),
                               ),
                             ),
@@ -422,36 +525,38 @@ class ChatType extends StatelessWidget {
                       ),
                     ),
 
-                    if (message.isNotEmpty)
+                    if (widget.message.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(
                           left: 6,
                           right: 6,
                           top: 8,
                         ),
-                        child: Text(message),
+                        child: Text(widget.message),
                       ),
-                  ] else if (type == MessageType.audio) ...[
+                  ] else if (widget.type == MessageType.audio) ...[
                     AudioMessageWidget(
-                      audioUrl: imageUrl,
-                      localPath: messageModel?.localPath,
-                      initialDurationMs: messageModel?.duration,
+                      audioUrl: widget.imageUrl,
+                      localPath: downloadedPath ?? widget.messageModel?.localPath,
+                      initialDurationMs: widget.messageModel?.duration,
+                      isComing: widget.isComing,
+                      onDownload: _startDownload,
                     ),
-                  ] else if (type == MessageType.file) ...[
+                  ] else if (widget.type == MessageType.file) ...[
                     FileMessageWidget(
-                      fileName: messageModel?.fileName ?? "Unknown",
-                      fileSize: messageModel?.fileSize.toString() ?? "0",
-                      fileUrl: imageUrl,
-                      localPath: messageModel?.localPath ?? "",
-                      isComing: isComing,
+                      fileName: widget.messageModel?.fileName ?? "Unknown",
+                      fileSize: widget.messageModel?.fileSize.toString() ?? "0",
+                      fileUrl: widget.imageUrl,
+                      localPath: widget.messageModel?.localPath ?? "",
+                      isComing: widget.isComing,
                     ),
-                  ] else if (message.isNotEmpty)
+                  ] else if (widget.message.isNotEmpty)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Flexible(child: Text(message)),
-                        if (isEdited)
+                        Flexible(child: Text(widget.message)),
+                        if (widget.isEdited)
                           const Padding(
                             padding: EdgeInsets.only(left: 6, top: 6, right: 4),
                             child: Text(
@@ -468,11 +573,11 @@ class ChatType extends StatelessWidget {
               ),
             ),
           ),
-          if (reactions.isNotEmpty)
+          if (widget.reactions.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 3, bottom: 3),
               child: Align(
-                alignment: isComing
+                alignment: widget.isComing
                     ? Alignment.centerLeft
                     : Alignment.centerRight,
                 child: buildReactionBubble(context),
@@ -482,20 +587,20 @@ class ChatType extends StatelessWidget {
           const SizedBox(height: 4),
 
           Row(
-            mainAxisAlignment: isComing
+            mainAxisAlignment: widget.isComing
                 ? MainAxisAlignment.start
                 : MainAxisAlignment.end,
             children: [
-              isComing
-                  ? Text(time, style: Theme.of(context).textTheme.labelMedium)
+              widget.isComing
+                  ? Text(widget.time, style: Theme.of(context).textTheme.labelMedium)
                   : Row(
                       children: [
                         Text(
-                          time,
+                          widget.time,
                           style: Theme.of(context).textTheme.labelMedium,
                         ),
                         const SizedBox(width: 4),
-                        if (!isComing) MessageStatusIcon(status: status),
+                        if (!widget.isComing) MessageStatusIcon(status: widget.status),
                       ],
                     ),
             ],

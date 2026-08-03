@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -9,7 +8,35 @@ import 'package:path_provider/path_provider.dart';
 class DownloadService {
   final Dio _dio = Dio();
 
-  Future<void> downloadFile({
+  Future<String> _getDownloadDirectory() async {
+    Directory? directory;
+    if (Platform.isAndroid) {
+      directory = Directory('/storage/emulated/0/Download');
+      if (!await directory.exists()) {
+        directory = await getExternalStorageDirectory();
+      }
+    } else {
+      directory = await getApplicationDocumentsDirectory();
+    }
+    return directory!.path;
+  }
+
+  Future<bool> isDownloaded(String fileName) async {
+    final dir = await _getDownloadDirectory();
+    final file = File("$dir/$fileName");
+    return await file.exists();
+  }
+
+  Future<String?> getFilePath(String fileName) async {
+    final dir = await _getDownloadDirectory();
+    final file = File("$dir/$fileName");
+    if (await file.exists()) {
+      return file.path;
+    }
+    return null;
+  }
+
+  Future<String?> downloadFile({
     required String url,
     required String fileName,
     bool isMedia = false,
@@ -17,7 +44,7 @@ class DownloadService {
     try {
       if (url.isEmpty) {
         Get.snackbar("Error", "Download URL is empty");
-        return;
+        return null;
       }
 
       // Show progress dialog
@@ -40,17 +67,8 @@ class DownloadService {
         barrierDismissible: false,
       );
 
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
-        }
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      final String savePath = "${directory!.path}/$fileName";
+      final dir = await _getDownloadDirectory();
+      final String savePath = "$dir/$fileName";
       
       await _dio.download(
         url,
@@ -71,6 +89,8 @@ class DownloadService {
         "File saved to: $savePath",
         snackPosition: SnackPosition.BOTTOM,
       );
+      
+      return savePath;
     } catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
       Get.snackbar(
@@ -78,6 +98,7 @@ class DownloadService {
         e.toString(),
         snackPosition: SnackPosition.BOTTOM,
       );
+      return null;
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:chatx_app/pages/group/create_group/select_members_screen.dart';
 import 'package:chatx_app/main.dart';
 import 'package:chatx_app/pages/screens/authentication/auth_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/contactPage/contact_screen.dart';
@@ -47,6 +48,11 @@ var pagePath = [
   GetPage(
     name: "/contactScreen",
     page: () => ContactScreen(),
+    transition: Transition.rightToLeft,
+  ),
+  GetPage(
+    name: "/createGroupScreen",
+    page: () => const SelectMembersScreen(),
     transition: Transition.rightToLeft,
   ),
 ];

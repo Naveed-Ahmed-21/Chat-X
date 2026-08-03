@@ -62,6 +62,23 @@ class UserContactController extends GetxController {
     }
   }
 
+  Future<UserModel?> getUserByEmail(String email) async {
+    try {
+      final snapshot = await db
+          .collection("users")
+          .where("email", isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return null;
+
+      return UserModel.fromJson(snapshot.docs.first.data());
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
   @override
   void onClose() {
     _userSubscription?.cancel();

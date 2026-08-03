@@ -2,6 +2,7 @@ import 'package:chatx_app/config/pagepaths.dart';
 import 'package:chatx_app/config/themes.dart';
 import 'package:chatx_app/controller/chat_controller.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
+import 'package:chatx_app/controller/group_chat_controller.dart';
 import 'package:chatx_app/services/upload_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +55,8 @@ class InitialBinding extends Bindings {
     Get.put(UploadService(), permanent: true);
     Get.put(DownloadService(), permanent: true);
     Get.put(ProfileController(), permanent: true);
+    Get.put(GroupController(), permanent: true);
+
   }
 }
 

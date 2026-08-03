@@ -6,6 +6,13 @@ import 'package:get/get.dart';
 class ChatRoomController extends GetxController {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
+  RxList<ChatRoomModel> chatRooms = <ChatRoomModel>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    chatRooms.bindStream(getChatRooms());
+  }
 
   String getRoomId(String targetUserId) {
     final currentUserId = auth.currentUser!.uid;
@@ -46,6 +53,17 @@ class ChatRoomController extends GetxController {
   }) async {
     final roomId = getRoomId(targetUserId);
 
+    await db.collection("chats").doc(roomId).update({
+      "lastMessage": lastMessage,
+      "lastMessageSenderId": auth.currentUser!.uid,
+      "lastMessageTimestamp": FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateLastMessage({
+    required String roomId,
+    required String lastMessage,
+  }) async {
     await db.collection("chats").doc(roomId).update({
       "lastMessage": lastMessage,
       "lastMessageSenderId": auth.currentUser!.uid,

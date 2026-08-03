@@ -19,15 +19,25 @@ class ChatController extends GetxController {
   Future<void> sendTextMessage({
     required String receiverId,
     required String text,
+    String? roomId,
+    bool isGroup = false,
   }) async {
-    final roomId = roomController.getRoomId(receiverId);
+    final effectiveRoomId = roomId ?? roomController.getRoomId(receiverId);
 
-    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+    final doc = db.collection("chats").doc(effectiveRoomId).collection("messages").doc();
 
-    final roomFuture = roomController.createOrUpdateRoom(
-      receiverId: receiverId,
-      lastMessage: text,
-    );
+    Future roomFuture;
+    if (isGroup) {
+      roomFuture = roomController.updateLastMessage(
+        roomId: effectiveRoomId,
+        lastMessage: text,
+      );
+    } else {
+      roomFuture = roomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: text,
+      );
+    }
 
     final reply = replyingMessage.value;
     final replyId = reply?.id ?? "";
@@ -207,15 +217,25 @@ class ChatController extends GetxController {
     String localPath = "",
     MessageStatus status = MessageStatus.sent,
     String caption = "",
+    String? roomId,
+    bool isGroup = false,
   }) async {
-    final roomId = roomController.getRoomId(receiverId);
+    final effectiveRoomId = roomId ?? roomController.getRoomId(receiverId);
 
-    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+    final doc = db.collection("chats").doc(effectiveRoomId).collection("messages").doc();
 
-    final roomFuture = roomController.createOrUpdateRoom(
-      receiverId: receiverId,
-      lastMessage: "📷 Photo",
-    );
+    Future roomFuture;
+    if (isGroup) {
+      roomFuture = roomController.updateLastMessage(
+        roomId: effectiveRoomId,
+        lastMessage: "📷 Photo",
+      );
+    } else {
+      roomFuture = roomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: "📷 Photo",
+      );
+    }
 
     final reply = replyingMessage.value;
 
@@ -255,15 +275,25 @@ class ChatController extends GetxController {
     required String thumbnail,
     String localPath = "",
     MessageStatus status = MessageStatus.sent,
+    String? roomId,
+    bool isGroup = false,
   }) async {
-    final roomId = roomController.getRoomId(receiverId);
+    final effectiveRoomId = roomId ?? roomController.getRoomId(receiverId);
 
-    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+    final doc = db.collection("chats").doc(effectiveRoomId).collection("messages").doc();
 
-    final roomFuture = roomController.createOrUpdateRoom(
-      receiverId: receiverId,
-      lastMessage: "🎥 Video",
-    );
+    Future roomFuture;
+    if (isGroup) {
+      roomFuture = roomController.updateLastMessage(
+        roomId: effectiveRoomId,
+        lastMessage: "🎥 Video",
+      );
+    } else {
+      roomFuture = roomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: "🎥 Video",
+      );
+    }
 
     final reply = replyingMessage.value;
     final replyId = reply?.id ?? "";
@@ -301,15 +331,25 @@ class ChatController extends GetxController {
     required int duration,
     String localPath = "",
     MessageStatus status = MessageStatus.sent,
+    String? roomId,
+    bool isGroup = false,
   }) async {
-    final roomId = roomController.getRoomId(receiverId);
+    final effectiveRoomId = roomId ?? roomController.getRoomId(receiverId);
 
-    final doc = db.collection("chats").doc(roomId).collection("messages").doc();
+    final doc = db.collection("chats").doc(effectiveRoomId).collection("messages").doc();
 
-    final roomFuture = roomController.createOrUpdateRoom(
-      receiverId: receiverId,
-      lastMessage: "🎤 Voice message",
-    );
+    Future roomFuture;
+    if (isGroup) {
+      roomFuture = roomController.updateLastMessage(
+        roomId: effectiveRoomId,
+        lastMessage: "🎤 Voice message",
+      );
+    } else {
+      roomFuture = roomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: "🎤 Voice message",
+      );
+    }
 
     final reply = replyingMessage.value;
     final replyId = reply?.id ?? "";
@@ -394,20 +434,29 @@ class ChatController extends GetxController {
     required String extension,
     String localPath = "",
     MessageStatus status = MessageStatus.sent,
+    String? roomId,
+    bool isGroup = false,
   }) async {
-
-    final roomId = roomController.getRoomId(receiverId);
+    final effectiveRoomId = roomId ?? roomController.getRoomId(receiverId);
 
     final doc = db
         .collection("chats")
-        .doc(roomId)
+        .doc(effectiveRoomId)
         .collection("messages")
         .doc();
 
-    final roomFuture = roomController.createOrUpdateRoom(
-      receiverId: receiverId,
-      lastMessage: "📄 $fileName",
-    );
+    Future roomFuture;
+    if (isGroup) {
+      roomFuture = roomController.updateLastMessage(
+        roomId: effectiveRoomId,
+        lastMessage: "📄 $fileName",
+      );
+    } else {
+      roomFuture = roomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: "📄 $fileName",
+      );
+    }
 
     final reply = replyingMessage.value;
     final replyId = reply?.id ?? "";
@@ -447,14 +496,15 @@ class ChatController extends GetxController {
   }
 
   Future<void> updateMessage(
-    String receiverId,
+    String targetId, // Can be receiverId or roomId
     String messageId,
-    Map<String, dynamic> data,
-  ) async {
-    final roomId = roomController.getRoomId(receiverId);
+    Map<String, dynamic> data, {
+    String? roomId,
+  }) async {
+    final effectiveRoomId = roomId ?? targetId;
     await db
         .collection("chats")
-        .doc(roomId)
+        .doc(effectiveRoomId)
         .collection("messages")
         .doc(messageId)
         .update(data);

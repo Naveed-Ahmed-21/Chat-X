@@ -5,19 +5,13 @@ import 'package:just_audio/just_audio.dart';
 class AudioWaveformWidget extends StatefulWidget {
   final AudioPlayer player;
 
-  const AudioWaveformWidget({
-    super.key,
-    required this.player,
-  });
+  const AudioWaveformWidget({super.key, required this.player});
 
   @override
-  State<AudioWaveformWidget> createState() =>
-      _AudioWaveformWidgetState();
+  State<AudioWaveformWidget> createState() => _AudioWaveformWidgetState();
 }
 
-class _AudioWaveformWidgetState
-    extends State<AudioWaveformWidget> {
-
+class _AudioWaveformWidgetState extends State<AudioWaveformWidget> {
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
 
@@ -44,13 +38,10 @@ class _AudioWaveformWidgetState
 
   @override
   Widget build(BuildContext context) {
-
     double progress = 0;
 
     if (duration.inMilliseconds > 0) {
-      progress =
-          position.inMilliseconds /
-              duration.inMilliseconds;
+      progress = position.inMilliseconds / duration.inMilliseconds;
     }
 
     return AudioFileWaveforms(

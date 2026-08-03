@@ -10,6 +10,15 @@ class ChatRoomModel {
   final List<String> participants;
   final String lastMessage;
   final String lastMessageSenderId;
+  
+  @JsonKey(defaultValue: "")
+  final String groupImage;
+
+  @JsonKey(defaultValue: "")
+  final String createdBy;
+
+  @JsonKey(defaultValue: <String>[])
+  final List<String> admins;
 
   @JsonKey(
     fromJson: _fromJson,
@@ -40,6 +49,9 @@ class ChatRoomModel {
     this.isGroup = false,
     this.groupName = "",
     this.createdAt,
+    this.groupImage = "",
+    this.createdBy = "",
+    this.admins = const [],
   });
 
   static DateTime? _fromJson(dynamic value) {
@@ -98,6 +110,9 @@ class ChatRoomModel {
     bool? isGroup,
     String? groupName,
     DateTime? createdAt,
+    String? groupImage,
+    String? createdBy,
+    List<String>? admins,
   }) {
     return ChatRoomModel(
       id: id ?? this.id,
@@ -112,6 +127,9 @@ class ChatRoomModel {
       isGroup: isGroup ?? this.isGroup,
       groupName: groupName ?? this.groupName,
       createdAt: createdAt ?? this.createdAt,
+      groupImage: groupImage ?? this.groupImage,
+      createdBy: createdBy ?? this.createdBy,
+      admins: admins ?? this.admins,
     );
   }
 }
