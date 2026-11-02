@@ -1,8 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
-
 import 'package:chatx_app/widgets/message_status.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
@@ -66,14 +65,17 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   Future<void> sendImages() async {
     if (controller.isUploading.value) return;
 
-    final mediaList = List<SelectedMedia>.from(media);
+    final paths = media.map((item) => item.file.path).toList();
+    final captions = media
+        .map((item) => item.captionController.text.trim())
+        .toList();
     final receiverId = widget.receiverId;
 
     Get.back(); // Close screen immediately
 
-    for (int i = 0; i < mediaList.length; i++) {
-      final path = mediaList[i].file.path;
-      final caption = mediaList[i].captionController.text.trim();
+    for (int i = 0; i < paths.length; i++) {
+      final path = paths[i];
+      final caption = captions[i];
 
       try {
         // Optimistic send
@@ -92,21 +94,27 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
           try {
             final imageUrl = await uploadService.uploadChatImage(path);
 
-            await chatController.updateMessage(
-              receiverId,
-              messageId,
-              {
-                "mediaUrl": imageUrl,
-                "status": MessageStatus.sent.name,
-              },
-              roomId: widget.roomId,
-            );
+            await chatController.updateMessage(receiverId, messageId, {
+              "mediaUrl": imageUrl,
+              "status": MessageStatus.sent.name,
+            }, roomId: widget.roomId);
           } catch (e) {
-            if (kDebugMode) print("Image upload error: $e");
+            developer.log(
+              'Image upload failed.',
+              name: 'MediaPreviewScreen',
+              error: e,
+            );
+            await chatController.updateMessage(receiverId, messageId, {
+              "status": MessageStatus.failed.name,
+            }, roomId: widget.roomId);
           }
         }());
       } catch (e) {
-        if (kDebugMode) print("Optimistic send error: $e");
+        developer.log(
+          'Could not prepare the selected media for sending.',
+          name: 'MediaPreviewScreen',
+          error: e,
+        );
       }
     }
   }
@@ -212,7 +220,11 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                   child: IconButton(
                     onPressed: controller.isUploading.value ? null : sendImages,
                     icon: controller.isUploading.value
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.send),
                   ),
                 ),

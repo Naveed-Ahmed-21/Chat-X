@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
@@ -71,12 +73,17 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
           itemBuilder: (_, index) {
             final image = widget.images[index];
+            final localImage =
+                image.localPath.isNotEmpty &&
+                File(image.localPath).existsSync();
 
             return Center(
               child: Hero(
                 tag: image.id,
                 child: PhotoView(
-                  imageProvider: CachedNetworkImageProvider(image.mediaUrl),
+                  imageProvider: localImage
+                      ? FileImage(File(image.localPath))
+                      : CachedNetworkImageProvider(image.mediaUrl),
                   loadingBuilder: (context, event) => const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
@@ -86,7 +93,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                       children: [
                         Icon(Icons.broken_image, color: Colors.white, size: 50),
                         SizedBox(height: 10),
-                        Text("Image not available", style: TextStyle(color: Colors.white)),
+                        Text(
+                          "Image not available",
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ],
                     ),
                   ),
@@ -105,7 +115,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.8),
+                    Colors.transparent,
+                  ],
                 ),
               ),
               child: Text(

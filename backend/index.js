@@ -1,20 +1,44 @@
 require("dotenv").config();
 
-const express = require("express");
+const { createApp } = require("./app");
 
-const app = express();
+const requiredCloudinaryVariables = [
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+];
+const missingVariables = requiredCloudinaryVariables.filter(
+  (name) => !process.env[name],
+);
 
-app.use(express.json());
+if (missingVariables.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missingVariables.join(", ")}`,
+  );
+}
 
-const uploadRoute = require("./routers/upload.router");
-app.use("/api/upload", uploadRoute);
+const port = Number.parseInt(process.env.PORT || "5000", 10);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be a valid TCP port");
+}
 
-const PORT = process.env.PORT || 5000;
-
-process.env.CLOUDINARY_CLOUD_NAME;
-
-console.log(process.env.CLOUDINARY_CLOUD_NAME);
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+const app = createApp();
+const server = app.listen(port, "0.0.0.0", () => {
+  console.info(`ChatX backend listening on port ${port}`);
 });
+
+function shutdown(signal) {
+  server.close((error) => {
+    if (error) {
+      console.error(`Backend shutdown failed after ${signal}.`);
+      process.exitCode = 1;
+      return;
+    }
+    process.exitCode = 0;
+  });
+}
+
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+
+module.exports = { app, server };

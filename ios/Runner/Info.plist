@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Chatx App</string>
+<string>ChatX</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>chatx_app</string>
+<string>ChatX</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -67,7 +67,22 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-    <string>ChatX needs microphone access to record voice messages.</string>
+<string>ChatX uses the microphone to record voice messages.</string>
+<key>NSCameraUsageDescription</key>
+<string>ChatX uses the camera to take photos and videos.</string>
+<key>CFBundleURLTypes</key>
+<array>
+	<dict>
+		<key>CFBundleTypeRole</key>
+		<string>Editor</string>
+		<key>CFBundleURLSchemes</key>
+		<array>
+			<string>com.googleusercontent.apps.960376410319-5m9i9hvam8ibes1ulgvcnq5o8lh6ii2h</string>
+		</array>
+	</dict>
+</array>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>ChatX needs photo library access to send images and videos in chat.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

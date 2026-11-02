@@ -3,7 +3,6 @@ import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/chat_screen.dart';
 import 'package:chatx_app/pages/screens/presentation/contactPage/widgets/new_contact_tile.dart';
 import 'package:chatx_app/pages/screens/presentation/homePage/widgets/chat_tile.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../config/imgepaths.dart';
@@ -113,33 +112,58 @@ class ContactScreen extends StatelessWidget {
             // SHOW ALL USER CONTACTS
             Obx(() {
               final allUsers = userContactController.userList;
-              final rooms = chatRoomController.chatRooms;
               
-              // Filter out users who already have a 1v1 chat room
-              final existingChatUserIds = rooms
-                  .where((r) => !r.isGroup)
-                  .expand((r) => r.participants)
-                  .where((uid) => uid != FirebaseAuth.instance.currentUser!.uid)
-                  .toSet();
+              var filteredUsers = allUsers.toList();
 
-              var filteredUsers = allUsers.where((u) => !existingChatUserIds.contains(u.uid)).toList();
-
-              // Limit to 50 random new contacts if not searching
-              if (controller.searchQuery.isEmpty) {
-                filteredUsers.shuffle();
-                if (filteredUsers.length > 50) {
-                  filteredUsers = filteredUsers.sublist(0, 50);
-                }
-              } else {
-                // Apply search filter
+              // Apply search filter if query is provided
+              if (controller.searchQuery.isNotEmpty) {
                 filteredUsers = allUsers.where((u) {
-                  return u.name.toLowerCase().contains(controller.searchQuery.value.toLowerCase()) ||
-                         u.email.toLowerCase().contains(controller.searchQuery.value.toLowerCase());
+                  final query = controller.searchQuery.value.toLowerCase();
+                  return u.name.toLowerCase().contains(query) ||
+                         u.email.toLowerCase().contains(query);
                 }).toList();
               }
 
+              if (userContactController.isLoading.value && allUsers.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
               if (filteredUsers.isEmpty) {
-                return const Center(child: Text("No contacts found"));
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person_search_rounded,
+                          size: 56,
+                          color: Colors.white38,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          "No contacts found",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          "Tap 'New Contact' above to add someone by email",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               }
 
               return ListView.builder(
@@ -154,9 +178,10 @@ class ContactScreen extends StatelessWidget {
                       Get.to(() => ChatScreen(user: user));
                     },
                     child: ChatTile(
+                      heroTag: "contact_${user.uid}",
                       imageUrl: user.profilePic,
                       name: user.name,
-                      lastMessage: user.about,
+                      lastMessage: user.about.isNotEmpty ? user.about : user.email,
                       lastTime: "",
                     ),
                   );
@@ -190,6 +215,8 @@ class ContactScreen extends StatelessWidget {
               if (email.isEmpty) return;
               
               final user = await userContactController.getUserByEmail(email);
+
+              if (!context.mounted) return;
               Navigator.pop(context);
               
               if (user != null) {

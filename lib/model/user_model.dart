@@ -13,6 +13,7 @@ class UserModel {
   final String createdAt;
   final String lastOnlineStatus;
   final String status;
+  final bool isOnline;
 
   UserModel({
     required this.uid,
@@ -24,6 +25,7 @@ class UserModel {
     required this.createdAt,
     required this.lastOnlineStatus,
     required this.status,
+    this.isOnline = false,
   });
 
   UserModel copyWith({
@@ -35,6 +37,7 @@ class UserModel {
     String? createdAt,
     String? lastOnlineStatus,
     String? status,
+    bool? isOnline,
   }) {
     return UserModel(
       uid: uid,
@@ -46,11 +49,24 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       lastOnlineStatus: lastOnlineStatus ?? this.lastOnlineStatus,
       status: status ?? this.status,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 
-  factory UserModel.fromJson(Map<String, dynamic> json) =>
-      _$UserModelFromJson(json);
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      uid: json['uid']?.toString() ?? '',
+      name: json['name']?.toString() ?? (json['email']?.toString().split('@').first ?? 'User'),
+      email: json['email']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      profilePic: json['profilePic']?.toString() ?? '',
+      about: json['about']?.toString() ?? 'Hey there! I am using Chat X',
+      createdAt: json['createdAt']?.toString() ?? '',
+      lastOnlineStatus: json['lastOnlineStatus']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      isOnline: json['isOnline'] as bool? ?? false,
+    );
+  }
 
   Map<String, dynamic> toJson() => _$UserModelToJson(this);
 }

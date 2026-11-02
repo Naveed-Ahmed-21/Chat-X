@@ -4,4 +4,5 @@ enum MessageType {
   video,
   audio,
   file,
+  notification,
 }

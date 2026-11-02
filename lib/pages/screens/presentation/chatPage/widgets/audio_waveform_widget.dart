@@ -38,12 +38,6 @@ class _AudioWaveformWidgetState extends State<AudioWaveformWidget> {
 
   @override
   Widget build(BuildContext context) {
-    double progress = 0;
-
-    if (duration.inMilliseconds > 0) {
-      progress = position.inMilliseconds / duration.inMilliseconds;
-    }
-
     return AudioFileWaveforms(
       size: const Size(160, 40),
 

@@ -11,7 +11,11 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   senderId: json['senderId'] as String,
   receiverId: json['receiverId'] as String,
   message: json['message'] as String,
-  type: $enumDecode(_$MessageTypeEnumMap, json['type']),
+  type: $enumDecode(
+    _$MessageTypeEnumMap,
+    json['type'],
+    unknownValue: MessageType.notification,
+  ),
   mediaUrl: json['mediaUrl'] as String,
   localPath: json['localPath'] as String? ?? '',
   timeStamp: MessageModel._fromJson(json['timeStamp']),
@@ -21,6 +25,9 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
   isDeleted: json['isDeleted'] as bool,
   deletedFor: json['deletedFor'] as Map<String, dynamic>? ?? const {},
   isEdited: json['isEdited'] as bool? ?? false,
+  seenBy:
+      (json['seenBy'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      [],
   fileName: json['fileName'] as String? ?? '',
   fileSize: (json['fileSize'] as num?)?.toInt() ?? 0,
   duration: (json['duration'] as num?)?.toInt() ?? 0,
@@ -49,6 +56,7 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'isDeleted': instance.isDeleted,
       'deletedFor': instance.deletedFor,
       'isEdited': instance.isEdited,
+      'seenBy': instance.seenBy,
     };
 
 const _$MessageTypeEnumMap = {
@@ -57,4 +65,5 @@ const _$MessageTypeEnumMap = {
   MessageType.video: 'video',
   MessageType.audio: 'audio',
   MessageType.file: 'file',
+  MessageType.notification: 'notification',
 };

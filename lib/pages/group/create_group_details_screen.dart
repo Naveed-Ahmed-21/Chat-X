@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:chatx_app/config/imgepaths.dart';
 import 'package:chatx_app/controller/group_chat_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/services/upload_service.dart';
@@ -38,10 +39,37 @@ class _CreateGroupDetailsScreenState extends State<CreateGroupDetailsScreen> {
           children: [
             GestureDetector(
               onTap: isPickingImage ? null : pickImage,
-              child: CircleAvatar(
-                radius: 55,
-                backgroundImage: image != null ? FileImage(File(image!.path)) : null,
-                child: image == null ? const Icon(Icons.camera_alt, size: 35) : null,
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 55,
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundImage: image != null ? FileImage(File(image!.path)) : null,
+                    child: image == null
+                        ? ClipOval(
+                            child: Image.asset(
+                              AppImages.appLogo,
+                              width: 110,
+                              height: 110,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : null,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: const Icon(
+                        Icons.camera_alt,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 30),

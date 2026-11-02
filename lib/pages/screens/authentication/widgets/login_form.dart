@@ -64,6 +64,14 @@ class _LoginFormState extends State<LoginForm> {
           ),
         ),
 
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => Get.toNamed('/forgotPasswordScreen'),
+            child: const Text('Forgot password?'),
+          ),
+        ),
+
         SizedBox(height: 40,),
 
         Obx(() {
@@ -110,7 +118,13 @@ class _LoginFormState extends State<LoginForm> {
               ),
             ],
           );
-        })
+        }),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: authController.signInWithGoogle,
+          icon: const Text('G', style: TextStyle(fontWeight: FontWeight.bold)),
+          label: const Text('Continue with Google'),
+        ),
       ],
     );
   }

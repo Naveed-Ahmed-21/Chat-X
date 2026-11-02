@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:chatx_app/services/download_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
+import '../../widgets/message_status.dart';
 
 class FileMessageWidget extends StatefulWidget {
   final String fileName;
@@ -9,6 +12,7 @@ class FileMessageWidget extends StatefulWidget {
   final String fileUrl;
   final String localPath;
   final bool isComing;
+  final MessageStatus status;
 
   const FileMessageWidget({
     super.key,
@@ -17,6 +21,7 @@ class FileMessageWidget extends StatefulWidget {
     required this.fileUrl,
     this.localPath = "",
     this.isComing = false,
+    this.status = MessageStatus.sent,
   });
 
   @override
@@ -35,7 +40,7 @@ class _FileMessageWidgetState extends State<FileMessageWidget> {
 
   Future<void> _checkFile() async {
     final downloadService = Get.find<DownloadService>();
-    if (widget.localPath.isNotEmpty) {
+    if (widget.localPath.isNotEmpty && File(widget.localPath).existsSync()) {
       downloadedPath = widget.localPath;
     } else {
       downloadedPath = await downloadService.getFilePath(widget.fileName);
@@ -69,7 +74,7 @@ class _FileMessageWidgetState extends State<FileMessageWidget> {
           if (downloadedPath != null) {
             await OpenFilex.open(downloadedPath!);
           } else if (widget.fileUrl.isNotEmpty) {
-             await OpenFilex.open(widget.fileUrl);
+            await OpenFilex.open(widget.fileUrl);
           }
         } else {
           _startDownload();
@@ -103,13 +108,25 @@ class _FileMessageWidgetState extends State<FileMessageWidget> {
                 ],
               ),
             ),
-            if (widget.isComing && downloadedPath == null && !isChecking)
+            if (!widget.isComing && widget.status == MessageStatus.sending)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (!widget.isComing && widget.status == MessageStatus.failed)
+              const Icon(Icons.error_outline, size: 20, color: Colors.redAccent)
+            else if (widget.isComing && downloadedPath == null && !isChecking)
               IconButton(
                 onPressed: _startDownload,
                 icon: const Icon(Icons.download, size: 20, color: Colors.grey),
               )
             else if (downloadedPath != null)
-              const Icon(Icons.check_circle_outline, size: 20, color: Colors.green),
+              const Icon(
+                Icons.check_circle_outline,
+                size: 20,
+                color: Colors.green,
+              ),
           ],
         ),
       ),

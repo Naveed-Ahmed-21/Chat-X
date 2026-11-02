@@ -96,33 +96,25 @@ class _FloatingReactionPickerState
   Widget build(BuildContext context) {
     return ScaleTransition(
       scale: _scale,
-      child: Material(
-        elevation: 12,
-        borderRadius: BorderRadius.circular(40),
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(40),
-            boxShadow: const [
-              BoxShadow(
-                blurRadius: 18,
-                spreadRadius: 2,
-                offset: Offset(0, 8),
-                color: Colors.black26,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(
-              emojis.length,
-                  (index) => buildEmoji(emojis[index], index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 10),
+              color: Colors.black.withValues(alpha: 0.3),
             ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(
+            emojis.length,
+            (index) => buildEmoji(emojis[index], index),
           ),
         ),
       ),

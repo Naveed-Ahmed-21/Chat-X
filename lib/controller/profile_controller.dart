@@ -1,8 +1,10 @@
+import 'dart:developer' as developer;
+
 import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/services/upload_service.dart';
+import 'package:chatx_app/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -64,7 +66,7 @@ class ProfileController extends GetxController {
       }
 
     } catch (e) {
-      if (kDebugMode) print("Error fetching user details: $e");
+      developer.log('Could not fetch the current user profile.', name: 'ProfileController', error: e);
     }
   }
 
@@ -99,6 +101,10 @@ class ProfileController extends GetxController {
 
       editingField.value = "";
       hasChanges.value = false;
+
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showProfileSavedNotification();
+      }
 
       Get.snackbar(
         "Success",

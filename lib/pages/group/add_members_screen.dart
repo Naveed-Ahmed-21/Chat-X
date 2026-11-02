@@ -42,7 +42,7 @@ class _AddGroupMembersScreenState extends State<AddGroupMembersScreen> {
                 hintText: "Search contacts...",
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -100,7 +100,8 @@ class _AddGroupMembersScreenState extends State<AddGroupMembersScreen> {
       floatingActionButton: selectedUsers.isEmpty ? null : FloatingActionButton(
         onPressed: () async {
           final ids = selectedUsers.map((u) => u.uid).toList();
-          await groupController.addMembers(widget.roomId, ids);
+          final names = selectedUsers.map((u) => u.name).toList();
+          await groupController.addMembers(widget.roomId, ids, names);
           Get.back(result: true);
           Get.snackbar("Success", "${selectedUsers.length} members added");
         },

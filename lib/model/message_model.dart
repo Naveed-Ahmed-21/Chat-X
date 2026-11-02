@@ -13,6 +13,7 @@ class MessageModel {
   final String senderId;
   final String receiverId;
   final String message;
+  @JsonKey(unknownEnumValue: MessageType.notification)
   final MessageType type;
   final String mediaUrl;
 
@@ -51,6 +52,9 @@ class MessageModel {
   final Map<String, dynamic> deletedFor;
   final bool isEdited;
 
+  @JsonKey(defaultValue: <String>[])
+  final List<String> seenBy;
+
   MessageModel({
     required this.id,
     required this.senderId,
@@ -66,6 +70,7 @@ class MessageModel {
     required this.isDeleted,
     this.deletedFor = const {},
     this.isEdited = false,
+    this.seenBy = const [],
     required this.fileName,
     this.fileSize = 0,
     required this.duration,
@@ -127,8 +132,7 @@ class MessageModel {
     int? duration,
     String? thumbnail,
     String? extension,
-
-
+    List<String>? seenBy,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -145,6 +149,7 @@ class MessageModel {
       isDeleted: isDeleted ?? this.isDeleted,
       deletedFor: deletedFor ?? this.deletedFor,
       isEdited: isEdited ?? this.isEdited,
+      seenBy: seenBy ?? this.seenBy,
       fileName: fileName ?? this.fileName ,
       fileSize: fileSize ?? this.fileSize,
       duration: duration ?? this.duration,

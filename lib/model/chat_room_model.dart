@@ -33,6 +33,28 @@ class ChatRoomModel {
   final Map<String, DateTime> lastReadTimestamp;
   final bool isGroup;
   final String groupName;
+
+  @JsonKey(defaultValue: "")
+  final String groupDescription;
+
+  @JsonKey(defaultValue: <String, String>{})
+  final Map<String, String> typingStatus;
+
+  @JsonKey(defaultValue: <String>[])
+  final List<String> pinnedBy;
+
+  @JsonKey(defaultValue: <String, String>{})
+  final Map<String, String> nicknames;
+
+  @JsonKey(defaultValue: <String, bool>{})
+  final Map<String, bool> deletedFor;
+
+  @JsonKey(
+    fromJson: _lastReadFromJson,
+    toJson: _lastReadToJson,
+  )
+  final Map<String, DateTime> clearChatAt;
+
   @JsonKey(
     fromJson: _fromJson,
     toJson: _toJson,
@@ -48,6 +70,12 @@ class ChatRoomModel {
     this.lastReadTimestamp = const {},
     this.isGroup = false,
     this.groupName = "",
+    this.groupDescription = "",
+    this.typingStatus = const {},
+    this.pinnedBy = const [],
+    this.nicknames = const {},
+    this.deletedFor = const {},
+    this.clearChatAt = const {},
     this.createdAt,
     this.groupImage = "",
     this.createdBy = "",
@@ -77,7 +105,7 @@ class ChatRoomModel {
     return json.map(
           (key, value) => MapEntry(
         key,
-        (value as Timestamp).toDate(),
+        value is Timestamp ? value.toDate() : DateTime.now(),
       ),
     );
   }
@@ -109,6 +137,12 @@ class ChatRoomModel {
     Map<String, DateTime>? lastReadTimestamp,
     bool? isGroup,
     String? groupName,
+    String? groupDescription,
+    Map<String, String>? typingStatus,
+    List<String>? pinnedBy,
+    Map<String, String>? nicknames,
+    Map<String, bool>? deletedFor,
+    Map<String, DateTime>? clearChatAt,
     DateTime? createdAt,
     String? groupImage,
     String? createdBy,
@@ -126,6 +160,12 @@ class ChatRoomModel {
       lastReadTimestamp ?? this.lastReadTimestamp,
       isGroup: isGroup ?? this.isGroup,
       groupName: groupName ?? this.groupName,
+      groupDescription: groupDescription ?? this.groupDescription,
+      typingStatus: typingStatus ?? this.typingStatus,
+      pinnedBy: pinnedBy ?? this.pinnedBy,
+      nicknames: nicknames ?? this.nicknames,
+      deletedFor: deletedFor ?? this.deletedFor,
+      clearChatAt: clearChatAt ?? this.clearChatAt,
       createdAt: createdAt ?? this.createdAt,
       groupImage: groupImage ?? this.groupImage,
       createdBy: createdBy ?? this.createdBy,

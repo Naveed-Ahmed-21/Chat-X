@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:chatx_app/config/imgepaths.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
@@ -7,9 +8,9 @@ import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/chat_type.
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/date_separator.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/empty_chat_widget.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_overlay.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
@@ -34,6 +35,11 @@ import '../../../../widgets/message_type.dart';
 import '../../mediaPreview/media_preview_screen.dart';
 import 'package:chatx_app/pages/group/group_info_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
+import 'package:chatx_app/pages/screens/presentation/chatPage/message_info_screen.dart';
+import 'package:chatx_app/widgets/media/image_viewer_screen.dart';
+
+import 'forward_message_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final UserModel? user;
@@ -61,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
   late final String roomId;
   late final String receiverId;
   late final Stream<List<MessageModel>> messageStream;
+  late final Stream<DocumentSnapshot<Map<String, dynamic>>> roomStream;
   final RxString selectedMessageId = "".obs;
 
   String? audioPath;
@@ -68,11 +75,14 @@ class _ChatScreenState extends State<ChatScreen> {
   int previousMessageCount = 0;
 
   final RxBool hasText = false.obs;
+  final RxList<UserModel> mentionsList = <UserModel>[].obs;
   RxBool isRecording = false.obs;
   final RxBool isRecordingCancelled = false.obs;
 
   bool hasInitialScroll = false;
   bool isAtBottom = true;
+
+  Timer? _typingTimer;
 
   @override
   void initState() {
@@ -80,16 +90,69 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (widget.chatRoom != null) {
       roomId = widget.chatRoom!.id;
-      receiverId = widget.chatRoom!.id;
+      if (widget.chatRoom!.isGroup) {
+        receiverId = widget.chatRoom!.id;
+      } else {
+        receiverId = widget.chatRoom!.participants.firstWhere(
+          (uid) => uid != FirebaseAuth.instance.currentUser?.uid,
+          orElse: () => widget.chatRoom!.id,
+        );
+      }
     } else {
       receiverId = widget.user!.uid;
       roomId = chatRoomController.getRoomId(receiverId);
+      chatRoomController.createOrUpdateRoom(
+        receiverId: receiverId,
+        lastMessage: "",
+      );
     }
 
     messageStream = chatController.getMessages(roomId);
+    roomStream = FirebaseFirestore.instance
+        .collection("chats")
+        .doc(roomId)
+        .snapshots()
+        .handleError((e) {
+          developer.log(
+            'Chat room stream failed.',
+            name: 'ChatScreen',
+            error: e,
+          );
+        });
 
     messageController.addListener(() {
-      hasText.value = messageController.text.trim().isNotEmpty;
+      final text = messageController.text;
+      hasText.value = text.trim().isNotEmpty;
+
+      // Debounced typing status
+      if (_typingTimer?.isActive ?? false) _typingTimer?.cancel();
+
+      if (text.trim().isNotEmpty) {
+        _typingTimer = Timer(const Duration(milliseconds: 500), () {
+          chatController.setTypingStatus(roomId, "typing...");
+        });
+      } else {
+        chatController.clearTypingStatus(roomId);
+      }
+
+      // Mentions logic
+      if (widget.chatRoom != null && text.contains("@")) {
+        final lastAt = text.lastIndexOf("@");
+        final query = text.substring(lastAt + 1).toLowerCase();
+
+        if (!query.contains(" ")) {
+          mentionsList.assignAll(
+            userController.userList
+                .where((u) => widget.chatRoom!.participants.contains(u.uid))
+                .where((u) => u.name.toLowerCase().contains(query))
+                .toList(),
+          );
+        } else {
+          mentionsList.clear();
+        }
+      } else {
+        mentionsList.clear();
+      }
     });
 
     chatController.markMessagesAsDelivered();
@@ -113,8 +176,31 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _showDeleteChatConfirm() {
+    Get.defaultDialog(
+      backgroundColor: const Color(0xFF212338),
+      title: "Delete Chat?",
+      titleStyle: const TextStyle(color: Colors.white),
+      middleText:
+          "This will remove the chat from your list. Other participants will still see it.",
+      middleTextStyle: const TextStyle(color: Colors.white70),
+      textConfirm: "Delete",
+      confirmTextColor: Colors.white,
+      buttonColor: Colors.redAccent,
+      textCancel: "Cancel",
+      onConfirm: () {
+        chatRoomController.deleteChatForMe(roomId);
+        Get.offAllNamed("/homeScreen");
+      },
+    );
+  }
+
   void showDeleteConfirmation(MessageModel message, bool isComing) {
-    final bool isAdmin = widget.chatRoom?.admins.contains(FirebaseAuth.instance.currentUser?.uid) ?? false;
+    final bool isAdmin =
+        widget.chatRoom?.admins.contains(
+          FirebaseAuth.instance.currentUser?.uid,
+        ) ??
+        false;
 
     Get.dialog(
       AlertDialog(
@@ -197,6 +283,50 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          /// Mentions list
+          Obx(() {
+            if (mentionsList.isEmpty) return const SizedBox();
+            return Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: mentionsList.length,
+                itemBuilder: (context, index) {
+                  final user = mentionsList[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      radius: 15,
+                      backgroundImage: user.profilePic.isNotEmpty
+                          ? NetworkImage(user.profilePic)
+                          : null,
+                    ),
+                    title: Text(
+                      user.name,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    onTap: () {
+                      final text = messageController.text;
+                      final lastAt = text.lastIndexOf("@");
+                      final newText =
+                          "${text.substring(0, lastAt)}@${user.name} ";
+                      messageController.text = newText;
+                      messageController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: newText.length),
+                      );
+                      mentionsList.clear();
+                    },
+                  );
+                },
+              ),
+            );
+          }),
+
           /// Reply Preview
           Obx(() {
             final reply = chatController.replyingMessage.value;
@@ -267,7 +397,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         const SizedBox(width: 8),
                         const Text(
                           "Recording...",
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const Spacer(),
@@ -278,7 +411,11 @@ class _ChatScreenState extends State<ChatScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.grey, size: 14),
+                        const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.grey,
+                          size: 14,
+                        ),
                         const SizedBox(width: 10),
                       ],
                     ),
@@ -300,10 +437,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 );
               }),
 
-              Obx(() => isRecording.value ? const SizedBox() : IconButton(
-                onPressed: showMediaPicker,
-                icon: const Icon(Icons.photo_library_rounded),
-              )),
+              Obx(
+                () => isRecording.value
+                    ? const SizedBox()
+                    : IconButton(
+                        onPressed: showMediaPicker,
+                        icon: const Icon(Icons.photo_library_rounded),
+                      ),
+              ),
 
               Obx(() {
                 return hasText.value
@@ -315,11 +456,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
                           messageController.clear();
 
-                          await chatController.sendTextMessage(
-                            receiverId: receiverId,
-                            text: text,
-                            roomId: roomId,
-                            isGroup: widget.chatRoom?.isGroup ?? false,
+                          unawaited(
+                            chatController.sendTextMessage(
+                              receiverId: receiverId,
+                              text: text,
+                              roomId: roomId,
+                              isGroup: widget.chatRoom?.isGroup ?? false,
+                            ),
                           );
                         },
                         icon: Icon(
@@ -340,9 +483,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                 HapticFeedback.heavyImpact();
                               }
                             } else if (details.localOffsetFromOrigin.dx > -20) {
-                               if (isRecordingCancelled.value) {
-                                 isRecordingCancelled.value = false;
-                               }
+                              if (isRecordingCancelled.value) {
+                                isRecordingCancelled.value = false;
+                              }
                             }
                           },
                           onLongPressEnd: (details) async {
@@ -360,12 +503,16 @@ class _ChatScreenState extends State<ChatScreen> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isRecording.value
-                                  ? (isRecordingCancelled.value ? Colors.grey : Colors.red)
+                                  ? (isRecordingCancelled.value
+                                        ? Colors.grey
+                                        : Colors.red)
                                   : Theme.of(context).colorScheme.primary,
                             ),
                             child: Icon(
-                              isRecording.value 
-                                  ? (isRecordingCancelled.value ? Icons.delete_outline : Icons.mic) 
+                              isRecording.value
+                                  ? (isRecordingCancelled.value
+                                        ? Icons.delete_outline
+                                        : Icons.mic)
                                   : Icons.mic_none,
                               color: Colors.white,
                               size: isRecording.value ? 28 : 24,
@@ -431,9 +578,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 onTap: () {
                   Get.back();
                   pickDocument();
-                  },
+                },
               ),
-
 
               ListTile(
                 leading: const Icon(Icons.close),
@@ -451,41 +597,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final video = await picker.pickVideo(source: ImageSource.gallery);
 
     if (video == null) return;
-
-    try {
-      Get.dialog(
-        const Center(child: CircularProgressIndicator()),
-        barrierDismissible: false,
-      );
-
-      final String? thumbnailPath = await thumbnailService.generateThumbnail(
-        video.path,
-      );
-      final result = await uploadService.uploadVideo(video.path);
-
-      final thumbnailUrl = thumbnailPath != null
-          ? await uploadService.uploadChatImage(thumbnailPath)
-          : "";
-
-      await chatController.sendVideoMessage(
-        receiverId: receiverId,
-        videoUrl: result["videoUrl"],
-        duration: result["duration"],
-        thumbnail: thumbnailUrl,
-        roomId: roomId,
-        isGroup: widget.chatRoom != null,
-      );
-
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
-    } catch (e) {
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
-
-      Get.snackbar("Upload Failed", e.toString());
-    }
+    await _sendVideoOptimistically(video);
   }
 
   Future<void> recordVideo() async {
@@ -495,40 +607,68 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (file == null) return;
+    await _sendVideoOptimistically(file);
+  }
 
+  Future<void> _sendVideoOptimistically(XFile file) async {
     try {
-      Get.dialog(
-        const Center(child: CircularProgressIndicator()),
-        barrierDismissible: false,
-      );
-
-      final String? thumbnailPath = await thumbnailService.generateThumbnail(
-        file.path,
-      );
-      final result = await uploadService.uploadVideo(file.path);
-
-      final thumbnailUrl = thumbnailPath != null
-          ? await uploadService.uploadChatImage(thumbnailPath)
-          : "";
-
-      await chatController.sendVideoMessage(
+      final messageId = await chatController.sendVideoMessage(
         receiverId: receiverId,
-        videoUrl: result["videoUrl"],
-        duration: result["duration"],
-        thumbnail: thumbnailUrl,
+        videoUrl: '',
+        duration: 0,
+        thumbnail: '',
+        localPath: file.path,
+        status: MessageStatus.sending,
         roomId: roomId,
         isGroup: widget.chatRoom != null,
       );
 
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
-    } catch (e) {
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
+      unawaited(() async {
+        try {
+          final thumbnailPath = await thumbnailService.generateThumbnail(
+            file.path,
+          );
+          if (thumbnailPath != null) {
+            await chatController.updateMessage(receiverId, messageId, {
+              'thumbnail': thumbnailPath,
+            }, roomId: roomId);
+          }
 
-      Get.snackbar("Upload Failed", e.toString());
+          final results = await Future.wait<dynamic>([
+            uploadService.uploadVideo(file.path),
+            if (thumbnailPath != null)
+              uploadService.uploadChatImage(thumbnailPath),
+          ]);
+          final videoResult = results.first as Map<String, dynamic>;
+          final thumbnailUrl = thumbnailPath == null
+              ? ''
+              : results[1] as String;
+          await chatController.updateMessage(receiverId, messageId, {
+            'mediaUrl': videoResult['videoUrl'],
+            'duration': videoResult['duration'] ?? 0,
+            'thumbnail': thumbnailUrl,
+            'status': MessageStatus.sent.name,
+          }, roomId: roomId);
+        } catch (error, stackTrace) {
+          developer.log(
+            'Video upload failed.',
+            name: 'ChatScreen',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          await chatController.updateMessage(receiverId, messageId, {
+            'status': MessageStatus.failed.name,
+          }, roomId: roomId);
+        }
+      }());
+    } catch (error, stackTrace) {
+      developer.log(
+        'Could not queue the outgoing video.',
+        name: 'ChatScreen',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      Get.snackbar('Video not sent', 'Could not add this video to the chat.');
     }
   }
 
@@ -561,14 +701,34 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (file == null) return;
 
-    final imageUrl = await uploadService.uploadChatImage(file.path);
-
-    await chatController.sendImageMessage(
+    // Send optimistic image message immediately so camera photo shows in chat
+    final String messageId = await chatController.sendImageMessage(
       receiverId: receiverId,
-      imageUrl: imageUrl,
+      imageUrl: "",
+      localPath: file.path,
+      status: MessageStatus.sending,
       roomId: roomId,
       isGroup: widget.chatRoom != null,
     );
+
+    unawaited(() async {
+      try {
+        final imageUrl = await uploadService.uploadChatImage(file.path);
+        await chatController.updateMessage(receiverId, messageId, {
+          "mediaUrl": imageUrl,
+          "status": MessageStatus.sent.name,
+        }, roomId: roomId);
+      } catch (e) {
+        developer.log(
+          'Camera image upload failed.',
+          name: 'ChatScreen',
+          error: e,
+        );
+        await chatController.updateMessage(receiverId, messageId, {
+          "status": MessageStatus.failed.name,
+        }, roomId: roomId);
+      }
+    }());
   }
 
   Future<void> startRecording() async {
@@ -576,6 +736,7 @@ class _ChatScreenState extends State<ChatScreen> {
       audioPath = await audioService.startRecording();
 
       isRecording.value = true;
+      chatController.setTypingStatus(roomId, "recording audio...");
     } catch (e) {
       Get.snackbar("Permission", e.toString());
     }
@@ -585,6 +746,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final path = await audioService.stopRecording();
 
     isRecording.value = false;
+    chatController.clearTypingStatus(roomId);
 
     if (path == null) return;
 
@@ -610,17 +772,15 @@ class _ChatScreenState extends State<ChatScreen> {
         try {
           final audioUrl = await uploadService.uploadAudio(path);
 
-          await chatController.updateMessage(
-            receiverId,
-            messageId,
-            {
-              "mediaUrl": audioUrl,
-              "status": MessageStatus.sent.name,
-            },
-            roomId: roomId,
-          );
+          await chatController.updateMessage(receiverId, messageId, {
+            "mediaUrl": audioUrl,
+            "status": MessageStatus.sent.name,
+          }, roomId: roomId);
         } catch (e) {
-          if (kDebugMode) print("Audio upload error: $e");
+          developer.log('Audio upload failed.', name: 'ChatScreen', error: e);
+          await chatController.updateMessage(receiverId, messageId, {
+            "status": MessageStatus.failed.name,
+          }, roomId: roomId);
         }
       }());
     } catch (e) {
@@ -656,21 +816,18 @@ class _ChatScreenState extends State<ChatScreen> {
         try {
           final response = await uploadService.uploadFile(file.path!);
 
-          await chatController.updateMessage(
-            receiverId,
-            messageId,
-            {
-              "mediaUrl": response["fileUrl"],
-              "status": MessageStatus.sent.name,
-              "fileName": response["fileName"],
-              "fileSize": response["size"],
-              "extension": response["extension"],
-            },
-            roomId: roomId,
-          );
+          await chatController.updateMessage(receiverId, messageId, {
+            "mediaUrl": response["fileUrl"],
+            "status": MessageStatus.sent.name,
+            "fileName": response["fileName"],
+            "fileSize": response["size"],
+            "extension": response["extension"],
+          }, roomId: roomId);
         } catch (e) {
-          if (kDebugMode) print("File upload error: $e");
-          // Optionally update message status to error
+          developer.log('File upload failed.', name: 'ChatScreen', error: e);
+          await chatController.updateMessage(receiverId, messageId, {
+            "status": MessageStatus.failed.name,
+          }, roomId: roomId);
         }
       }());
     } catch (e) {
@@ -702,22 +859,44 @@ class _ChatScreenState extends State<ChatScreen> {
           },
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundImage: (widget.chatRoom?.isGroup == true)
-                    ? (widget.chatRoom!.groupImage.isNotEmpty
-                        ? CachedNetworkImageProvider(widget.chatRoom!.groupImage)
-                        : null)
-                    : (widget.user!.profilePic.isNotEmpty
-                        ? CachedNetworkImageProvider(widget.user!.profilePic)
-                        : null),
-                child: (widget.chatRoom?.isGroup == true)
-                    ? (widget.chatRoom!.groupImage.isEmpty
-                        ? Image.asset(AppImages.appLogo)
-                        : null)
-                    : (widget.user!.profilePic.isEmpty
-                        ? Image.asset(AppImages.male)
-                        : null),
+              GestureDetector(
+                onTap: () {
+                  final img = (widget.chatRoom?.isGroup == true)
+                      ? widget.chatRoom!.groupImage
+                      : widget.user!.profilePic;
+                  if (img.startsWith("http")) {
+                    Get.to(
+                      () => ImageViewerScreen(
+                        imageUrl: img,
+                        heroTag: "chat_profile_$roomId",
+                      ),
+                    );
+                  }
+                },
+                child: Hero(
+                  tag: "chat_profile_$roomId",
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundImage: (widget.chatRoom?.isGroup == true)
+                        ? (widget.chatRoom!.groupImage.isNotEmpty
+                              ? CachedNetworkImageProvider(
+                                  widget.chatRoom!.groupImage,
+                                )
+                              : null)
+                        : (widget.user!.profilePic.isNotEmpty
+                              ? CachedNetworkImageProvider(
+                                  widget.user!.profilePic,
+                                )
+                              : null),
+                    child: (widget.chatRoom?.isGroup == true)
+                        ? (widget.chatRoom!.groupImage.isEmpty
+                              ? Image.asset(AppImages.appLogo)
+                              : null)
+                        : (widget.user!.profilePic.isEmpty
+                              ? Image.asset(AppImages.male)
+                              : null),
+                  ),
+                ),
               ),
 
               const SizedBox(width: 10),
@@ -731,11 +910,84 @@ class _ChatScreenState extends State<ChatScreen> {
                         : widget.user!.name,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Text(
-                    widget.chatRoom?.isGroup == true
-                        ? "${widget.chatRoom!.participants.length} members"
-                        : widget.user!.status,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: roomStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data?.data() == null ||
+                          !snapshot.data!.exists) {
+                        return Text(
+                          widget.chatRoom?.isGroup == true
+                              ? "${widget.chatRoom!.participants.length} members"
+                              : widget.user!.status,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        );
+                      }
+
+                      final data = snapshot.data!.data()!;
+                      final typingMap = Map<String, String>.from(
+                        data['typingStatus'] ?? {},
+                      );
+                      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+                      // Filter out current user from typing status
+                      typingMap.remove(currentUid);
+
+                      if (typingMap.isNotEmpty) {
+                        final typingUid = typingMap.keys.first;
+                        final status = typingMap[typingUid];
+
+                        return FutureBuilder<UserModel?>(
+                          future: userController.getUserById(typingUid),
+                          builder: (context, userSnap) {
+                            final name = userSnap.data?.name ?? "Someone";
+                            return Text(
+                              "$name is $status",
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            );
+                          },
+                        );
+                      }
+
+                      if (widget.chatRoom?.isGroup == true) {
+                        final participants = data['participants'] as List;
+                        return StreamBuilder<List<UserModel>>(
+                          stream: FirebaseFirestore.instance
+                              .collection("users")
+                              .snapshots()
+                              .map(
+                                (s) => s.docs
+                                    .map((d) => UserModel.fromJson(d.data()))
+                                    .where((u) => participants.contains(u.uid))
+                                    .where(
+                                      (u) => u.lastOnlineStatus == "online",
+                                    )
+                                    .toList(),
+                              ),
+                          builder: (context, onlineSnap) {
+                            final onlineCount = onlineSnap.data?.length ?? 0;
+                            return Text(
+                              "${participants.length} members${onlineCount > 0 ? ' ($onlineCount online)' : ''}",
+                              style: Theme.of(context).textTheme.bodySmall,
+                            );
+                          },
+                        );
+                      }
+
+                      return Text(
+                        widget.chatRoom?.isGroup == true
+                            ? "${(data['participants'] as List).length} members"
+                            : widget.user!.status,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      );
+                    },
                   ),
                 ],
               ),
@@ -743,13 +995,22 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.call, color: Colors.grey[200]),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.videocam_rounded, color: Colors.grey[200]),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == "delete") {
+                _showDeleteChatConfirm();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: "delete",
+                child: Text(
+                  "Delete Chat",
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ],
+            icon: Icon(Icons.more_vert, color: Colors.grey[200]),
           ),
         ],
       ),
@@ -767,75 +1028,52 @@ class _ChatScreenState extends State<ChatScreen> {
                   }
 
                   if (snapshot.hasError) {
-                    if (kDebugMode) {
-                      print(snapshot.error);
-                    }
-
-                    return Center(child: Text(snapshot.error.toString()));
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const EmptyChatWidget();
                   }
 
-                  final messages = snapshot.data!;
-                  final lastMessage = messages.last;
+                  final messages = snapshot.data ?? [];
+                  if (messages.isEmpty) {
+                    return const EmptyChatWidget();
+                  }
+
                   final currentUser = FirebaseAuth.instance.currentUser!.uid;
+
                   final firstUnreadIndex = messages.indexWhere(
                     (m) =>
                         m.receiverId == currentUser &&
                         m.status != MessageStatus.seen,
                   );
 
-                  if (lastMessage.senderId ==
-                          FirebaseAuth.instance.currentUser!.uid &&
-                      messages.length > previousMessageCount) {
+                  // Live real-time read receipt trigger for incoming messages
+                  final hasUnseenIncoming = messages.any(
+                    (m) =>
+                        m.receiverId == currentUser &&
+                        m.status != MessageStatus.seen,
+                  );
+
+                  if (hasUnseenIncoming) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (messages.length > previousMessageCount) {
-                        previousMessageCount = messages.length;
-                        scrollToLastMessage(messages.length);
-                      }
+                      chatController.markMessagesAsSeen(
+                        roomId,
+                        receiverId,
+                        isGroup: widget.chatRoom?.isGroup == true,
+                      );
                     });
                   }
 
-                  if (!hasInitialScroll) {
+                  if (!hasInitialScroll && messages.isNotEmpty) {
                     hasInitialScroll = true;
 
                     WidgetsBinding.instance.addPostFrameCallback((_) async {
-                      if (!itemScrollController.isAttached) return;
-
-                      if (firstUnreadIndex != -1) {
-                        // Show a few old messages above the first unread one
-                        final targetIndex = (firstUnreadIndex - 4).clamp(
-                          0,
-                          messages.length - 1,
-                        );
-
-                        itemScrollController.jumpTo(index: targetIndex);
-                      } else {
-                        // No unread messages, open at the latest message
-                        itemScrollController.jumpTo(index: messages.length - 1);
-                      }
-
-                      // Wait for the scroll to finish
-                      await Future.delayed(const Duration(milliseconds: 500));
-
-                      // Now mark them as seen
-                      if (widget.user != null) {
-                        chatController.markMessagesAsSeen(
-                          roomId,
-                          widget.user!.uid,
-                        );
-                      } else if (widget.chatRoom != null) {
-                         // Optional: mark group messages as seen if needed
-                         // chatController.markGroupMessagesAsSeen(roomId);
-                      }
+                      chatController.updateLastReadTimestamp(roomId);
                     });
                   }
 
-                  return ScrollablePositionedList.builder(
-                    itemScrollController: itemScrollController,
-                    itemPositionsListener: itemPositionsListener,
+                  return ListView.builder(
+                    reverse: true,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
@@ -870,27 +1108,28 @@ class _ChatScreenState extends State<ChatScreen> {
                       final repliedSenderName = repliedMessage == null
                           ? ""
                           : repliedMessage.senderId ==
-                                  FirebaseAuth.instance.currentUser!.uid
-                              ? "You"
-                              : widget.chatRoom?.isGroup == true
-                                  ? (userController.userList
-                                          .firstWhereOrNull(
-                                            (u) =>
-                                                u.uid ==
-                                                repliedMessage!.senderId,
-                                          )
-                                          ?.name ??
-                                      "Unknown")
-                                  : widget.user!.name;
+                                FirebaseAuth.instance.currentUser!.uid
+                          ? "You"
+                          : widget.chatRoom?.isGroup == true
+                          ? (userController.userList
+                                    .firstWhereOrNull(
+                                      (u) => u.uid == repliedMessage!.senderId,
+                                    )
+                                    ?.name ??
+                                "Unknown")
+                          : widget.user!.name;
 
+                      // Date separator check for reverse: true list (index messages.length - 1 is oldest message)
                       bool showDate = false;
-                      if (index == 0) {
+                      if (index == messages.length - 1) {
                         showDate = true;
                       } else {
-                        final previous = messages[index - 1];
+                        final olderMessage = messages[index + 1];
 
                         showDate =
-                            DateTimeFormatter.chatDate(previous.timeStamp) !=
+                            DateTimeFormatter.chatDate(
+                              olderMessage.timeStamp,
+                            ) !=
                             DateTimeFormatter.chatDate(message.timeStamp);
                       }
 
@@ -958,6 +1197,26 @@ class _ChatScreenState extends State<ChatScreen> {
                                       chatController.startReply(message);
                                       messageFocus.requestFocus();
                                     },
+
+                                    onForward: () {
+                                      Get.to(
+                                        () => ForwardMessageScreen(
+                                          message: message,
+                                        ),
+                                      );
+                                    },
+
+                                    onInfo:
+                                        !isComing &&
+                                            widget.chatRoom?.isGroup == true
+                                        ? () {
+                                            Get.to(
+                                              () => MessageInfoScreen(
+                                                message: message,
+                                              ),
+                                            );
+                                          }
+                                        : null,
 
                                     onCopy: () async {
                                       await Clipboard.setData(
@@ -1038,21 +1297,39 @@ class _ChatScreenState extends State<ChatScreen> {
                                     isEdited: message.isEdited,
                                     reactions: message.reactions,
                                     senderName: widget.chatRoom?.isGroup == true
-                                        ? (isComing 
-                                            ? (userController.userList
-                                                .firstWhereOrNull((u) => u.uid == message.senderId)
-                                                ?.name ?? "Unknown")
-                                            : "you")
+                                        ? (isComing
+                                              ? (userController.userList
+                                                        .firstWhereOrNull(
+                                                          (u) =>
+                                                              u.uid ==
+                                                              message.senderId,
+                                                        )
+                                                        ?.name ??
+                                                    "Unknown")
+                                              : "you")
                                         : "",
-                                    onSenderTap: widget.chatRoom?.isGroup == true && isComing
+                                    onSenderTap:
+                                        widget.chatRoom?.isGroup == true
                                         ? () {
+                                            final uid = isComing
+                                                ? message.senderId
+                                                : FirebaseAuth
+                                                      .instance
+                                                      .currentUser
+                                                      ?.uid;
                                             final user = userController.userList
-                                                .firstWhereOrNull((u) => u.uid == message.senderId);
+                                                .firstWhereOrNull(
+                                                  (u) => u.uid == uid,
+                                                );
                                             if (user != null) {
-                                              Get.toNamed('/userProfileScreen', arguments: user);
+                                              Get.toNamed(
+                                                '/userProfileScreen',
+                                                arguments: user,
+                                              );
                                             }
                                           }
                                         : null,
+                                    groupMembers: userController.userList,
                                   ),
                                 ),
                               );

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:chatx_app/model/user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,7 +33,7 @@ class DBController extends GetxController {
       );
     }
     catch(err){
-      print(err);
+      developer.log(err.toString(), name: 'DBController');
     }
     isLoading.value = false;
   }

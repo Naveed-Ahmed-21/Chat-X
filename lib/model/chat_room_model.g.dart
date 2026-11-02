@@ -23,6 +23,30 @@ ChatRoomModel _$ChatRoomModelFromJson(
         ),
   isGroup: json['isGroup'] as bool? ?? false,
   groupName: json['groupName'] as String? ?? "",
+  groupDescription: json['groupDescription'] as String? ?? '',
+  typingStatus:
+      (json['typingStatus'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      {},
+  pinnedBy:
+      (json['pinnedBy'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      [],
+  nicknames:
+      (json['nicknames'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      {},
+  deletedFor:
+      (json['deletedFor'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as bool),
+      ) ??
+      {},
+  clearChatAt: json['clearChatAt'] == null
+      ? const {}
+      : ChatRoomModel._lastReadFromJson(
+          json['clearChatAt'] as Map<String, dynamic>?,
+        ),
   createdAt: ChatRoomModel._fromJson(json['createdAt']),
   groupImage: json['groupImage'] as String? ?? '',
   createdBy: json['createdBy'] as String? ?? '',
@@ -47,5 +71,11 @@ Map<String, dynamic> _$ChatRoomModelToJson(
   ),
   'isGroup': instance.isGroup,
   'groupName': instance.groupName,
+  'groupDescription': instance.groupDescription,
+  'typingStatus': instance.typingStatus,
+  'pinnedBy': instance.pinnedBy,
+  'nicknames': instance.nicknames,
+  'deletedFor': instance.deletedFor,
+  'clearChatAt': ChatRoomModel._lastReadToJson(instance.clearChatAt),
   'createdAt': ChatRoomModel._toJson(instance.createdAt),
 };

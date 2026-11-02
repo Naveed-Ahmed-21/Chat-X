@@ -9,7 +9,7 @@ const uploadImage = async (req, res) => {
       });
     }
 
-    const uid = req.body.uid;
+    const uid = req.firebaseUser.uid;
 
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "ChatX/ProfileImages",
@@ -23,11 +23,11 @@ const uploadImage = async (req, res) => {
       imageUrl: result.secure_url,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Profile image upload failed:", error.code || error.message);
 
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Profile image upload failed",
     });
   }
 };
@@ -50,21 +50,17 @@ const uploadChatImage = async (req, res) => {
       imageUrl: result.secure_url,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Chat image upload failed:", error.code || error.message);
 
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Chat image upload failed",
     });
   }
 };
 
 const uploadVideo = async (req, res) => {
   try {
-
-       console.log("VIDEO API HIT");
-
-         console.log(req.file);
 
     if (!req.file) {
       return res.status(400).json({
@@ -78,27 +74,23 @@ const uploadVideo = async (req, res) => {
       resource_type: "video",
     });
 
-    console.log(result);
-
     return res.json({
       success: true,
       videoUrl: result.secure_url,
       duration: result.duration ?? 0,
     });
   } catch (e) {
-      console.error(e);
+      console.error("Video upload failed:", e.code || e.message);
 
     return res.status(500).json({
       success: false,
-      message: e.message,
+      message: "Video upload failed",
     });
   }
 };
 
 const uploadAudio = async (req, res) => {
   try {
-
-    console.log("AUDIO API HIT");
 
     if (!req.file) {
       return res.status(400).json({
@@ -107,7 +99,7 @@ const uploadAudio = async (req, res) => {
       });
     }
 
-    const uid = req.body.uid;
+    const uid = req.firebaseUser.uid;
 
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "ChatX/Audio",
@@ -122,11 +114,11 @@ const uploadAudio = async (req, res) => {
 
   } catch (e) {
 
-    console.log(e);
+    console.error("Audio upload failed:", e.code || e.message);
 
     return res.status(500).json({
       success: false,
-      message: e.message,
+      message: "Audio upload failed",
     });
 
   }
@@ -136,27 +128,18 @@ const path = require("path");
 
 const uploadFile = async (req, res) => {
   try {
-    console.log("FILE API HIT");
-
     if (!req.file) {
-      console.log("No file in request");
       return res.status(400).json({
         success: false,
         message: "No file selected",
       });
     }
 
-    const uid = req.body.uid || "anonymous";
-    console.log("UID from body:", uid);
-    console.log("File path:", req.file.path);
-
     // Using resource_type: "auto" is often safer as Cloudinary will detect it
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "ChatX/Files",
       resource_type: "auto",
     });
-
-    console.log("Cloudinary upload successful:", result.secure_url);
 
     return res.json({
       success: true,
@@ -167,10 +150,10 @@ const uploadFile = async (req, res) => {
     });
 
   } catch (e) {
-    console.error("FILE UPLOAD ERROR:", e);
+    console.error("File upload failed:", e.code || e.message);
     return res.status(500).json({
       success: false,
-      message: "Internal server error during file upload: " + e.message,
+      message: "File upload failed",
     });
   }
 };

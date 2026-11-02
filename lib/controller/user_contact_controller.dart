@@ -1,14 +1,17 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:chatx_app/model/user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import 'dart:async';
 
 class UserContactController extends GetxController {
   final db = FirebaseFirestore.instance;
   final auth = FirebaseAuth.instance;
 
   StreamSubscription<QuerySnapshot>? _userSubscription;
+  StreamSubscription<User?>? _authSubscription;
 
   RxBool isLoading = false.obs;
   RxList<UserModel> userList = <UserModel>[].obs;
@@ -16,48 +19,84 @@ class UserContactController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    getUserLists();
+    _authSubscription = auth.authStateChanges().listen((user) {
+      if (user != null) {
+        getUserLists();
+      } else {
+        _userSubscription?.cancel();
+        userList.clear();
+        isLoading.value = false;
+      }
+    });
   }
-
 
   Future<void> getUserLists() async {
     try {
-      final currentUid = auth.currentUser!.uid;
+      final currentUid = auth.currentUser?.uid;
+
+      if (currentUid == null) {
+        await _userSubscription?.cancel();
+        userList.clear();
+        isLoading.value = false;
+        return;
+      }
 
       isLoading.value = true;
-
-      userList.clear();
 
       await _userSubscription?.cancel();
 
       _userSubscription = db
           .collection("users")
           .snapshots()
-          .listen((snapshot) {
-        userList.assignAll(
-          snapshot.docs
-              .map((doc) => UserModel.fromJson(doc.data()))
-              .where((user) => user.uid != currentUid)
-              .toList(),
-        );
-
-        isLoading.value = false;
-      });
+          .listen(
+            (snapshot) {
+              final List<UserModel> loaded = [];
+              for (var doc in snapshot.docs) {
+                try {
+                  final data = doc.data();
+                  final user = UserModel.fromJson(data);
+                  if (user.uid.isNotEmpty && user.uid != currentUid) {
+                    loaded.add(user);
+                  }
+                } catch (e) {
+                  developer.log(
+                    'Could not parse user profile ${doc.id}.',
+                    name: 'UserContactController',
+                    error: e,
+                  );
+                }
+              }
+              userList.assignAll(loaded);
+              isLoading.value = false;
+            },
+            onError: (error) {
+              developer.log(
+                'User profile stream failed.',
+                name: 'UserContactController',
+                error: error,
+              );
+              isLoading.value = false;
+            },
+          );
     } catch (e) {
       isLoading.value = false;
-      print(e);
     }
   }
 
   Future<UserModel?> getUserById(String uid) async {
+    // 1. Check if user is already in the stream-fed list
+    final cachedUser = userList.firstWhereOrNull((u) => u.uid == uid);
+    if (cachedUser != null) return cachedUser;
+
     try {
       final doc = await db.collection("users").doc(uid).get();
 
       if (!doc.exists) return null;
 
-      return UserModel.fromJson(doc.data()!);
+      final user = UserModel.fromJson(doc.data()!);
+      // Optionally add to list if needed, but the stream should pick it up eventually
+      return user;
     } catch (e) {
-      print(e);
       return null;
     }
   }
@@ -74,15 +113,14 @@ class UserContactController extends GetxController {
 
       return UserModel.fromJson(snapshot.docs.first.data());
     } catch (e) {
-      print(e);
       return null;
     }
   }
 
   @override
   void onClose() {
+    _authSubscription?.cancel();
     _userSubscription?.cancel();
     super.onClose();
   }
-
 }

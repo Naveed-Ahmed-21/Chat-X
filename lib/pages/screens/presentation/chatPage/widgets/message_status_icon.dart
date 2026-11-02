@@ -37,6 +37,13 @@ class MessageStatusIcon extends StatelessWidget {
           size: 16,
           color: Colors.blue,
         );
+
+      case MessageStatus.failed:
+        return const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: Colors.redAccent,
+        );
     }
   }
 }

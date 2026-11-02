@@ -1,7 +1,7 @@
 import 'package:chatx_app/config/imgepaths.dart';
 import 'package:chatx_app/controller/profile_controller.dart';
 import 'package:chatx_app/pages/screens/presentation/homePage/widgets/chat_room_list.dart';
-import 'package:chatx_app/pages/screens/presentation/homePage/widgets/tabBar.dart';
+import 'package:chatx_app/pages/screens/presentation/homePage/widgets/tab_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -14,8 +14,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late ProfileController profileController;
+  late TabController tabController;
   final TextEditingController searchController = TextEditingController();
   final RxBool isSearch = false.obs;
   final RxString searchQuery = "".obs;
@@ -23,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    tabController = TabController(length: 2, vsync: this);
     profileController = Get.find<ProfileController>();
     Get.find<ChatController>().markMessagesAsDelivered();
     searchController.addListener(() {
@@ -32,13 +35,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    tabController.dispose();
     searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    TabController tabController = TabController(length: 3, vsync: this);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -103,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   searchQuery: searchQuery.value,
                   onlyGroups: true,
                 )),
-            ListView(children: const [ListTile(title: Text("Naveed"))]),
           ],
         ),
       ),

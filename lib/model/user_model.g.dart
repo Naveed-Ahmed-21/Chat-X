@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: unused_element
 
 part of 'user_model.dart';
 
@@ -16,6 +17,7 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) => UserModel(
   createdAt: json['createdAt'] as String,
   lastOnlineStatus: json['lastOnlineStatus'] as String,
   status: json['status'] as String,
+  isOnline: json['isOnline'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
@@ -28,4 +30,5 @@ Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
   'createdAt': instance.createdAt,
   'lastOnlineStatus': instance.lastOnlineStatus,
   'status': instance.status,
+  'isOnline': instance.isOnline,
 };

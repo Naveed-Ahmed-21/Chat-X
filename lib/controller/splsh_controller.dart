@@ -16,7 +16,16 @@ class SplashController extends GetxController {
       Duration(seconds: 3),
     );
     if (auth.currentUser != null) {
-      Get.offAllNamed('/homeScreen');
+      await auth.currentUser!.reload();
+      if (auth.currentUser?.emailVerified == true ||
+          auth.currentUser?.providerData.any(
+                (provider) => provider.providerId == 'google.com',
+              ) ==
+              true) {
+        Get.offAllNamed('/homeScreen');
+      } else {
+        Get.offAllNamed('/verificationScreen');
+      }
     } else {
       Get.offAllNamed('/authScreen');
     }

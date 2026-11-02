@@ -1,3 +1,6 @@
+import 'dart:developer' as developer;
+import 'dart:io';
+
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -28,24 +31,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> initializePlayer() async {
-    videoController = VideoPlayerController.networkUrl(
-      Uri.parse(widget.videoUrl),
-    );
+    try {
+      final localFile = File(widget.videoUrl);
+      videoController = localFile.existsSync()
+          ? VideoPlayerController.file(localFile)
+          : VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
 
-    await videoController.initialize();
-
-    chewieController = ChewieController(
-      videoPlayerController: videoController,
-      autoPlay: true,
-      looping: false,
-      allowFullScreen: true,
-      allowMuting: true,
-      showControls: true,
-    );
-
-    setState(() {
-      loading = false;
-    });
+      await videoController.initialize();
+      chewieController = ChewieController(
+        videoPlayerController: videoController,
+        autoPlay: true,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        showControls: true,
+      );
+    } catch (error) {
+      developer.log(
+        'Could not open video.',
+        name: 'VideoPlayerScreen',
+        error: error,
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   @override
@@ -65,6 +74,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: Center(
         child: loading
             ? const CircularProgressIndicator()
+            : chewieController == null
+            ? const Text(
+                'Video could not be opened',
+                style: TextStyle(color: Colors.white),
+              )
             : Chewie(
           controller: chewieController!,
         ),

@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:chatx_app/model/message_model.dart';
+import 'package:chatx_app/model/user_model.dart';
 import 'package:chatx_app/pages/screens/presentation/chatPage/widgets/message_status_icon.dart';
 import 'package:chatx_app/widgets/message_status.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../../model/message_model.dart';
 import '../../../../../widgets/media/audio_message_widget.dart';
 import '../../../../../widgets/message_type.dart';
 import '../../../mediaPreview/media_viewer_screen.dart';
@@ -33,6 +35,7 @@ class ChatType extends StatefulWidget {
   final bool enableHero;
   final String senderName;
   final VoidCallback? onSenderTap;
+  final List<UserModel> groupMembers;
 
   const ChatType({
     super.key,
@@ -55,6 +58,7 @@ class ChatType extends StatefulWidget {
     this.enableHero = true,
     this.senderName = "",
     this.onSenderTap,
+    this.groupMembers = const [],
   });
 
   @override
@@ -73,21 +77,21 @@ class _ChatTypeState extends State<ChatType> {
 
   Future<void> _checkDownload() async {
     if (widget.messageModel == null) return;
-    
+
     final downloadService = Get.find<DownloadService>();
     String fileName = "";
-    
+
     if (widget.messageModel!.fileName.isNotEmpty) {
       fileName = widget.messageModel!.fileName;
     } else {
-       // Fallback filename generation
-       if (widget.type == MessageType.image) {
-         fileName = "IMG_${widget.messageModel!.id}.jpg";
-       } else if (widget.type == MessageType.video) {
-         fileName = "VID_${widget.messageModel!.id}.mp4";
-       } else if (widget.type == MessageType.audio) {
-         fileName = "AUD_${widget.messageModel!.id}.mp3";
-       }
+      // Fallback filename generation
+      if (widget.type == MessageType.image) {
+        fileName = "IMG_${widget.messageModel!.id}.jpg";
+      } else if (widget.type == MessageType.video) {
+        fileName = "VID_${widget.messageModel!.id}.mp4";
+      } else if (widget.type == MessageType.audio) {
+        fileName = "AUD_${widget.messageModel!.id}.mp3";
+      }
     }
 
     if (fileName.isNotEmpty) {
@@ -104,15 +108,15 @@ class _ChatTypeState extends State<ChatType> {
   Future<void> _startDownload() async {
     final downloadService = Get.find<DownloadService>();
     String fileName = widget.messageModel?.fileName ?? "";
-    
+
     if (fileName.isEmpty) {
-       if (widget.type == MessageType.image) {
-         fileName = "IMG_${widget.messageModel!.id}.jpg";
-       } else if (widget.type == MessageType.video) {
-         fileName = "VID_${widget.messageModel!.id}.mp4";
-       } else if (widget.type == MessageType.audio) {
-         fileName = "AUD_${widget.messageModel!.id}.mp3";
-       }
+      if (widget.type == MessageType.image) {
+        fileName = "IMG_${widget.messageModel!.id}.jpg";
+      } else if (widget.type == MessageType.video) {
+        fileName = "VID_${widget.messageModel!.id}.mp4";
+      } else if (widget.type == MessageType.audio) {
+        fileName = "AUD_${widget.messageModel!.id}.mp3";
+      }
     }
 
     final path = await downloadService.downloadFile(
@@ -128,8 +132,82 @@ class _ChatTypeState extends State<ChatType> {
     }
   }
 
+  TextSpan _buildMessageWithMentions(String text, BuildContext context) {
+    final List<TextSpan> children = [];
+    final RegExp mentionRegex = RegExp(r"(@[a-zA-Z0-9_]+)");
+
+    int lastMatchEnd = 0;
+    for (final match in mentionRegex.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        children.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
+      }
+
+      final mention = match.group(0)!;
+      final name = mention.substring(1); // Remove @
+
+      children.add(
+        TextSpan(
+          text: mention,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              final user = widget.groupMembers.firstWhereOrNull(
+                (u) =>
+                    u.name.toLowerCase().replaceAll(' ', '') ==
+                    name.toLowerCase(),
+              );
+              if (user != null) {
+                Get.toNamed('/userProfileScreen', arguments: user);
+              }
+            },
+        ),
+      );
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < text.length) {
+      children.add(TextSpan(text: text.substring(lastMatchEnd)));
+    }
+
+    return TextSpan(
+      children: children,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 20,
+        height: 1.25,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.type == MessageType.notification) {
+      return Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            widget.message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
     Widget buildReactionBubble(BuildContext context) {
       final grouped = <String, int>{};
 
@@ -190,12 +268,17 @@ class _ChatTypeState extends State<ChatType> {
             transform: Matrix4.identity(),
 
             child: Container(
-              padding: widget.imageUrl.isNotEmpty
+              padding: widget.type == MessageType.text
+                  ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                  : widget.imageUrl.isNotEmpty
                   ? const EdgeInsets.all(4)
                   : const EdgeInsets.all(10),
               constraints: BoxConstraints(
-                maxWidth: (widget.type == MessageType.image || widget.type == MessageType.video)
-                    ? 250 + 8.0 // image width + padding
+                maxWidth:
+                    (widget.type == MessageType.image ||
+                        widget.type == MessageType.video)
+                    ? 230 +
+                          8.0 // image width + padding
                     : MediaQuery.sizeOf(context).width / 1.3,
               ),
               decoration: BoxDecoration(
@@ -219,32 +302,13 @@ class _ChatTypeState extends State<ChatType> {
                     ? CrossAxisAlignment.start
                     : CrossAxisAlignment.end,
                 children: [
-                  if (widget.messageModel != null && widget.messageModel!.status == MessageStatus.sending)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Uploading...",
-                            style: TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (widget.senderName.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 5, left: 5),
                       child: InkWell(
                         onTap: widget.onSenderTap,
                         child: Text(
-                          widget.isComing 
+                          widget.isComing
                               ? "@${widget.senderName.toLowerCase().replaceAll(' ', '')}"
                               : "@you",
                           style: TextStyle(
@@ -301,17 +365,24 @@ class _ChatTypeState extends State<ChatType> {
                       children: [
                         const Icon(Icons.block, size: 16, color: Colors.grey),
                         const SizedBox(width: 6),
-                        Text(
-                          "This message was deleted",
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
+                        const Flexible(
+                          child: Text(
+                            "This message was deleted",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     )
                   else if (widget.type == MessageType.image &&
-                      widget.imageUrl.isNotEmpty) ...[
+                      (widget.imageUrl.isNotEmpty ||
+                          (widget.messageModel?.localPath.isNotEmpty == true &&
+                              File(
+                                widget.messageModel!.localPath,
+                              ).existsSync()))) ...[
                     GestureDetector(
                       onTap: () {
                         if (widget.isComing && downloadedPath == null) {
@@ -321,7 +392,8 @@ class _ChatTypeState extends State<ChatType> {
 
                         final bool hasValidImageIndex =
                             widget.currentImageIndex >= 0 &&
-                            widget.currentImageIndex < widget.imageMessages.length;
+                            widget.currentImageIndex <
+                                widget.imageMessages.length;
                         if (!hasValidImageIndex) return;
 
                         final activeImageMessages = widget.imageMessages
@@ -344,55 +416,108 @@ class _ChatTypeState extends State<ChatType> {
                       },
                       child: Stack(
                         children: [
-                          widget.enableHero 
-                          ? Hero(
-                            tag: widget.heroTag,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
-                                  ? Image.file(
-                                      File(widget.messageModel!.localPath),
-                                      width: 250,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : CachedNetworkImage(
-                                      imageUrl: widget.imageUrl,
-                                      width: 250,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, _) => Container(
-                                        width: 250,
-                                        height: 200,
-                                        alignment: Alignment.center,
-                                        child: const CircularProgressIndicator(),
-                                      ),
-                                      errorWidget: (_, _, _) =>
-                                          const Icon(Icons.broken_image),
-                                    ),
-                            ),
-                          )
-                          : ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
-                                  ? Image.file(
-                                      File(widget.messageModel!.localPath),
-                                      width: 250,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : CachedNetworkImage(
-                                      imageUrl: widget.imageUrl,
-                                      width: 250,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, _) => Container(
-                                        width: 250,
-                                        height: 200,
-                                        alignment: Alignment.center,
-                                        child: const CircularProgressIndicator(),
-                                      ),
-                                      errorWidget: (_, _, _) =>
-                                          const Icon(Icons.broken_image),
-                                    ),
-                            ),
-                          if (widget.isComing && downloadedPath == null && !isChecking)
+                          widget.enableHero
+                              ? Hero(
+                                  tag: widget.heroTag,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child:
+                                        (widget.messageModel != null &&
+                                            widget
+                                                .messageModel!
+                                                .localPath
+                                                .isNotEmpty &&
+                                            File(
+                                              widget.messageModel!.localPath,
+                                            ).existsSync())
+                                        ? Image.file(
+                                            File(
+                                              widget.messageModel!.localPath,
+                                            ),
+                                            width: 230,
+                                            height: 200,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : CachedNetworkImage(
+                                            imageUrl: widget.imageUrl,
+                                            width: 230,
+                                            height: 200,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, _) => Container(
+                                              width: 230,
+                                              height: 200,
+                                              color: Colors.black12,
+                                              alignment: Alignment.center,
+                                              child: const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                            ),
+                                            errorWidget: (_, _, _) => Container(
+                                              width: 230,
+                                              height: 200,
+                                              color: Colors.black26,
+                                              child: const Icon(
+                                                Icons.broken_image,
+                                                color: Colors.white54,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                )
+                              : ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child:
+                                      (widget.messageModel != null &&
+                                          widget
+                                              .messageModel!
+                                              .localPath
+                                              .isNotEmpty &&
+                                          File(
+                                            widget.messageModel!.localPath,
+                                          ).existsSync())
+                                      ? Image.file(
+                                          File(widget.messageModel!.localPath),
+                                          width: 230,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : CachedNetworkImage(
+                                          imageUrl: widget.imageUrl,
+                                          width: 230,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, _) => Container(
+                                            width: 230,
+                                            height: 200,
+                                            color: Colors.black12,
+                                            alignment: Alignment.center,
+                                            child: const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget: (_, _, _) => Container(
+                                            width: 230,
+                                            height: 200,
+                                            color: Colors.black26,
+                                            child: const Icon(
+                                              Icons.broken_image,
+                                              color: Colors.white54,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                          if (widget.isComing &&
+                              downloadedPath == null &&
+                              !isChecking)
                             Positioned(
                               top: 8,
                               right: 8,
@@ -401,7 +526,11 @@ class _ChatTypeState extends State<ChatType> {
                                 backgroundColor: Colors.black38,
                                 child: IconButton(
                                   padding: EdgeInsets.zero,
-                                  icon: const Icon(Icons.download, color: Colors.white, size: 20),
+                                  icon: const Icon(
+                                    Icons.download,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                   onPressed: _startDownload,
                                 ),
                               ),
@@ -419,9 +548,11 @@ class _ChatTypeState extends State<ChatType> {
                         ),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: Text(
-                            widget.message,
-                            style: const TextStyle(fontSize: 15),
+                          child: RichText(
+                            text: _buildMessageWithMentions(
+                              widget.message,
+                              context,
+                            ),
                           ),
                         ),
                       ),
@@ -438,7 +569,11 @@ class _ChatTypeState extends State<ChatType> {
                         ),
                       ),
                   ] else if (widget.type == MessageType.video &&
-                      widget.imageUrl.isNotEmpty) ...[
+                      (widget.imageUrl.isNotEmpty ||
+                          (widget.messageModel?.localPath.isNotEmpty == true &&
+                              File(
+                                widget.messageModel!.localPath,
+                              ).existsSync()))) ...[
                     GestureDetector(
                       onTap: () {
                         if (widget.isComing && downloadedPath == null) {
@@ -449,8 +584,13 @@ class _ChatTypeState extends State<ChatType> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                VideoPlayerScreen(videoUrl: downloadedPath ?? widget.imageUrl),
+                            builder: (_) => VideoPlayerScreen(
+                              videoUrl:
+                                  downloadedPath ??
+                                  (widget.imageUrl.isNotEmpty
+                                      ? widget.imageUrl
+                                      : widget.messageModel!.localPath),
+                            ),
                           ),
                         );
                       },
@@ -462,43 +602,58 @@ class _ChatTypeState extends State<ChatType> {
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                (widget.messageModel != null && widget.messageModel!.localPath.isNotEmpty && File(widget.messageModel!.localPath).existsSync())
+                                (widget.thumbnail.isNotEmpty &&
+                                        File(widget.thumbnail).existsSync())
                                     ? Image.file(
-                                        File(widget.messageModel!.localPath),
-                                        width: 250,
+                                        File(widget.thumbnail),
+                                        width: 230,
                                         height: 180,
                                         fit: BoxFit.cover,
                                       )
-                                    : (widget.thumbnail.isNotEmpty || (widget.imageUrl.contains("cloudinary") && widget.imageUrl.contains("/video/upload/")))
-                                        ? CachedNetworkImage(
-                                            imageUrl: widget.thumbnail.isNotEmpty 
-                                              ? widget.thumbnail 
-                                              : widget.imageUrl.replaceAll(RegExp(r'\.[^.]+$'), '.jpg'),
-                                            width: 250,
-                                            height: 180,
-                                            fit: BoxFit.cover,
-                                            placeholder: (_, _) => Container(
-                                              width: 250,
-                                              height: 180,
-                                              color: Colors.black26,
-                                              child: const Center(
-                                                child: CircularProgressIndicator(),
+                                    : (widget.thumbnail.isNotEmpty ||
+                                          (widget.imageUrl.contains(
+                                                "cloudinary",
+                                              ) &&
+                                              widget.imageUrl.contains(
+                                                "/video/upload/",
+                                              )))
+                                    ? CachedNetworkImage(
+                                        imageUrl: widget.thumbnail.isNotEmpty
+                                            ? widget.thumbnail
+                                            : widget.imageUrl.replaceAll(
+                                                RegExp(r'\.[^.]+$'),
+                                                '.jpg',
                                               ),
-                                            ),
-                                            errorWidget: (_, _, _) => Container(
-                                              width: 250,
-                                              height: 180,
-                                              color: Colors.black,
-                                              child: const Icon(Icons.videocam,
-                                                  color: Colors.white54),
-                                            ),
-                                          )
-                                        : Container(
-                                            width: 250,
-                                            height: 180,
-                                            color: Colors.black,
-                                            child: const Icon(Icons.videocam, color: Colors.white54),
+                                        width: 230,
+                                        height: 180,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, _) => Container(
+                                          width: 230,
+                                          height: 180,
+                                          color: Colors.black26,
+                                          child: const Center(
+                                            child: CircularProgressIndicator(),
                                           ),
+                                        ),
+                                        errorWidget: (_, _, _) => Container(
+                                          width: 230,
+                                          height: 180,
+                                          color: Colors.black,
+                                          child: const Icon(
+                                            Icons.videocam,
+                                            color: Colors.white54,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 230,
+                                        height: 180,
+                                        color: Colors.black,
+                                        child: const Icon(
+                                          Icons.videocam,
+                                          color: Colors.white54,
+                                        ),
+                                      ),
 
                                 const CircleAvatar(
                                   radius: 28,
@@ -507,7 +662,9 @@ class _ChatTypeState extends State<ChatType> {
                               ],
                             ),
                           ),
-                          if (widget.isComing && downloadedPath == null && !isChecking)
+                          if (widget.isComing &&
+                              downloadedPath == null &&
+                              !isChecking)
                             Positioned(
                               top: 8,
                               right: 8,
@@ -516,7 +673,11 @@ class _ChatTypeState extends State<ChatType> {
                                 backgroundColor: Colors.black38,
                                 child: IconButton(
                                   padding: EdgeInsets.zero,
-                                  icon: const Icon(Icons.download, color: Colors.white, size: 20),
+                                  icon: const Icon(
+                                    Icons.download,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                   onPressed: _startDownload,
                                 ),
                               ),
@@ -537,10 +698,33 @@ class _ChatTypeState extends State<ChatType> {
                   ] else if (widget.type == MessageType.audio) ...[
                     AudioMessageWidget(
                       audioUrl: widget.imageUrl,
-                      localPath: downloadedPath ?? widget.messageModel?.localPath,
+                      localPath:
+                          downloadedPath ?? widget.messageModel?.localPath,
                       initialDurationMs: widget.messageModel?.duration,
                       isComing: widget.isComing,
                       onDownload: _startDownload,
+                    ),
+                  ] else if (widget.type == MessageType.notification) ...[
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          widget.message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ),
                   ] else if (widget.type == MessageType.file) ...[
                     FileMessageWidget(
@@ -549,13 +733,21 @@ class _ChatTypeState extends State<ChatType> {
                       fileUrl: widget.imageUrl,
                       localPath: widget.messageModel?.localPath ?? "",
                       isComing: widget.isComing,
+                      status: widget.status,
                     ),
                   ] else if (widget.message.isNotEmpty)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Flexible(child: Text(widget.message)),
+                        Flexible(
+                          child: RichText(
+                            text: _buildMessageWithMentions(
+                              widget.message,
+                              context,
+                            ),
+                          ),
+                        ),
                         if (widget.isEdited)
                           const Padding(
                             padding: EdgeInsets.only(left: 6, top: 6, right: 4),
@@ -592,7 +784,10 @@ class _ChatTypeState extends State<ChatType> {
                 : MainAxisAlignment.end,
             children: [
               widget.isComing
-                  ? Text(widget.time, style: Theme.of(context).textTheme.labelMedium)
+                  ? Text(
+                      widget.time,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    )
                   : Row(
                       children: [
                         Text(
@@ -600,7 +795,8 @@ class _ChatTypeState extends State<ChatType> {
                           style: Theme.of(context).textTheme.labelMedium,
                         ),
                         const SizedBox(width: 4),
-                        if (!widget.isComing) MessageStatusIcon(status: widget.status),
+                        if (!widget.isComing)
+                          MessageStatusIcon(status: widget.status),
                       ],
                     ),
             ],

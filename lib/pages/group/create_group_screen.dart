@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chatx_app/controller/chat_room_controller.dart';
 import 'package:chatx_app/controller/user_contact_controller.dart';
 import 'package:chatx_app/model/user_model.dart';
@@ -42,7 +43,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 hintText: "Search connected contacts...",
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,

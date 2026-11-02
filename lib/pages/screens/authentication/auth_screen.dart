@@ -53,16 +53,13 @@ class _AuthScreenState extends State<AuthScreen> {
                             child: Column(
                               children: [
                                 Obx(() => Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                                   children: [
-              
                                     // Login
-                                    InkWell(
-                                      onTap: (){
-                                        isLogin.value = true;
-                                      },
-                                      child: SizedBox(
-                                        width: MediaQuery.sizeOf(context).width/2.5,
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () {
+                                          isLogin.value = true;
+                                        },
                                         child: Column(
                                           children: [
                                             Text(
@@ -71,10 +68,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   ? Theme.of(context).textTheme.bodyLarge
                                                   : Theme.of(context).textTheme.labelLarge,
                                             ),
-                                            SizedBox(height: 5,),
+                                            const SizedBox(height: 5),
                                             AnimatedContainer(
-                                              duration:Duration(milliseconds: 200),
-                                              width: isLogin.value ? 100 : 0,
+                                              duration: const Duration(milliseconds: 200),
+                                              width: isLogin.value ? 80 : 0,
                                               height: 3,
                                               decoration: BoxDecoration(
                                                 borderRadius: BorderRadius.circular(12),
@@ -85,14 +82,13 @@ class _AuthScreenState extends State<AuthScreen> {
                                         ),
                                       ),
                                     ),
-              
-                                    // SignUP
-                                    InkWell(
-                                      onTap: (){
-                                        isLogin.value = false;
-                                      },
-                                      child: SizedBox(
-                                        width: MediaQuery.sizeOf(context).width/2.5,
+
+                                    // SignUp
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () {
+                                          isLogin.value = false;
+                                        },
                                         child: Column(
                                           children: [
                                             Text(
@@ -101,10 +97,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   ? Theme.of(context).textTheme.labelLarge
                                                   : Theme.of(context).textTheme.bodyLarge,
                                             ),
-                                            SizedBox(height: 5,),
+                                            const SizedBox(height: 5),
                                             AnimatedContainer(
-                                              duration:Duration(milliseconds: 200),
-                                              width: isLogin.value ? 0 : 100,
+                                              duration: const Duration(milliseconds: 200),
+                                              width: isLogin.value ? 0 : 80,
                                               height: 3,
                                               decoration: BoxDecoration(
                                                 borderRadius: BorderRadius.circular(12),
@@ -116,8 +112,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                       ),
                                     )
                                   ],
-                                ),
-                                ),
+                                )),
 
                                 Obx(
                                         () => isLogin.value ? LoginForm() : SignupForm(),
