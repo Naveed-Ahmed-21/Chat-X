@@ -1,5 +1,50 @@
 # ChatX deployment
 
+## Deploy the backend to Genezio
+
+The backend contains a Genezio manifest at `backend/genezio.yaml`. It deploys
+`index.js` as an HTTP server using Node.js 20.
+
+1. Install or run the Genezio CLI:
+
+   ```sh
+   npm install -g genezio
+   ```
+
+2. Log in:
+
+   ```sh
+   genezio login
+   ```
+
+3. Go to the backend directory:
+
+   ```sh
+   cd backend
+   ```
+
+4. Create `backend/.env` from `.env.example` and fill in:
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
+   `FIREBASE_SERVICE_ACCOUNT_JSON`, and `ZEGO_APP_SIGN`.
+
+5. Deploy only the backend:
+
+   ```sh
+   genezio deploy --backend --env .env --stage prod
+   ```
+
+6. Copy the HTTPS URL printed by Genezio and test:
+
+   ```sh
+   curl https://YOUR-GENEZIO-URL/health
+   ```
+
+   The response must be `{"status":"ok"}`.
+
+The `--env .env` option uploads the environment values for the deployment. Do
+not commit `backend/.env`; it is already ignored by Git. Genezio may assign a
+generated URL, so use the URL shown by the CLI rather than guessing one.
+
 ## Deploy the backend to Render
 
 1. Push this repository to GitHub or GitLab.
