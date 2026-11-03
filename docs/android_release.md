@@ -17,4 +17,8 @@ Then build with:
 flutter build appbundle --release --dart-define=BASE_URL=https://YOUR_BACKEND_HOST
 ```
 
+The generated bundle is `build/app/outputs/bundle/release/app-release.aab`. Upload
+that file to Google Play Console after completing the package ID and Firebase
+steps below. Increment the version in `pubspec.yaml` for every subsequent upload.
+
 Before publishing, replace the current `com.example.chatx_app` application ID with ChatX's permanent Android package ID, register that same ID in Firebase, download the matching `google-services.json`, and configure the release SHA-1/SHA-256 fingerprints for Google Sign-In. Changing the application ID after publishing creates a different Android app.

@@ -79,6 +79,8 @@ ChatX/
 
 ## 🔧 Setup & Installation
 
+For the production deployment path, see [docs/deployment.md](docs/deployment.md).
+
 ### Prerequisites
 - **Flutter SDK** (v3.19 or higher)
 - **Node.js** (v18 or higher)
